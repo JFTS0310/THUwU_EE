@@ -1,4 +1,3 @@
-// === 注意：為了相容性，移除了 ES6 Import，改用全域變數 ===
 const firebaseConfig = {
   apiKey: "AIzaSyBxMmx_5uYfD1R_yRTxbMsABErZMuMcMTs",
   authDomain: "thuee-stu.firebaseapp.com",
@@ -44,12 +43,25 @@ let gradingData = {};
 
 const USER_TAGS_LIST = ["考試", "點名", "分組", "書面報告", "上台報告", "互動式", "禁電子產品", "筆記評分", "實地參訪"];
 
-let userReviews = JSON.parse(localStorage.getItem("userReviews_v2")) || {}; 
-let blockedData = JSON.parse(localStorage.getItem("blockedData")) || { teachers: [], courses: [] };
+let userReviews = {};
+try {
+    userReviews = JSON.parse(localStorage.getItem("userReviews_v2")) || {};
+} catch(e) { console.error("UserReviews parse error", e); userReviews = {}; }
+
+let blockedData = { teachers: [], courses: [] };
+try {
+    const localBlocked = JSON.parse(localStorage.getItem("blockedData"));
+    if (localBlocked) {
+        blockedData = localBlocked;
+        if (!Array.isArray(blockedData.teachers)) blockedData.teachers = [];
+        if (!Array.isArray(blockedData.courses)) blockedData.courses = [];
+    }
+} catch(e) { console.error("BlockedData parse error", e); }
 
 let filter = {
     department: false,
-    departmentId: -1,
+    departmentId: -1,     
+    departmentCode: null, 
     period: false,
     periodCodes: [],
     tagFilters: {} 
@@ -67,7 +79,7 @@ try {
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         } else {
-            firebase.app(); // if already initialized
+            firebase.app(); 
         }
         auth = firebase.auth();
         db = firebase.firestore();
@@ -79,7 +91,6 @@ try {
     console.error("Firebase init failed:", e);
 }
 
-// Safari sucks.
 const supportBigInt = typeof BigInt !== 'undefined';
 if (!supportBigInt) BigInt = JSBI.BigInt;
 
@@ -114,8 +125,7 @@ function updateCreditsUI() {
         const cred = +courseData[id].credit;
         total += cred;
         
-        // 根據 COURSE_TYPE 統計
-        const typeIndex = courseData[id].type; // 0:選修, 1:必修, 2:通識...
+        const typeIndex = courseData[id].type; 
         if (typeIndex === 1) details["必修"] += cred;
         else if (typeIndex === 0) details["選修"] += cred;
         else if (typeIndex === 2) details["通識"] += cred;
@@ -125,11 +135,8 @@ function updateCreditsUI() {
     document.querySelector(".credits").textContent = `${total} 學分`;
     const tooltipText = `必修: ${details["必修"]} | 選修: ${details["選修"]} | 通識: ${details["通識"]} | 其他: ${details["其他"]}`;
     
-    // 更新 Tooltip
     const tooltip = document.getElementById("credits-breakdown");
     if(tooltip) tooltip.textContent = tooltipText;
-    
-    // 同時更新 title 屬性作為 fallback
     document.querySelector(".credits").title = tooltipText;
 }
 
@@ -203,7 +210,6 @@ const settingOptions = [
 renderConfig(settingOptions);
 renderTagFilters(); 
 
-// 綁定側邊欄篩選器折疊功能
 const filterContainer = document.getElementById('user-tag-filter-container');
 const filterHeader = filterContainer.querySelector('.filter-header');
 const filterContent = filterContainer.querySelector('.filter-content');
@@ -218,6 +224,33 @@ if (filterHeader) {
             filterContainer.classList.remove('is-expanded');
         }
     };
+}
+
+// === 核心功能：遞迴過濾空的系所 ===
+function filterDepartments(deptData, activeDepIds) {
+    const filtered = {};
+    let hasValidChild = false;
+
+    for (const [key, value] of Object.entries(deptData)) {
+        if (typeof value === 'number') {
+            let isActive = false;
+            if (activeDepIds.has(value)) {
+                isActive = true;
+            }
+            
+            if (isActive) {
+                filtered[key] = value;
+                hasValidChild = true;
+            }
+        } else if (typeof value === 'object' && value !== null) {
+            const filteredChild = filterDepartments(value, activeDepIds);
+            if (Object.keys(filteredChild).length > 0) {
+                filtered[key] = filteredChild;
+                hasValidChild = true;
+            }
+        }
+    }
+    return filtered;
 }
 
 // Fetch data.
@@ -238,16 +271,28 @@ Promise.all([
         updateCreditsUI(); 
         renderAllSelected();
 
-        let deptDataToRender = departmentRaw;
-        // 防呆
+        const activeDepIds = new Set();
+        Object.values(courseData).forEach(course => {
+            if (Array.isArray(course.dep)) {
+                course.dep.forEach(id => activeDepIds.add(id));
+            }
+        });
+
+        let deptDataToProcess = departmentRaw;
         if (departmentRaw && Object.keys(departmentRaw).length === 1 && typeof Object.values(departmentRaw)[0] === 'object') {
-             deptDataToRender = Object.values(departmentRaw)[0];
+             deptDataToProcess = Object.values(departmentRaw)[0];
         }
 
-        renderDepartment(deptDataToRender);
+        const filteredDeptData = filterDepartments(deptDataToProcess, activeDepIds);
+
+        renderDepartment(filteredDeptData);
+        renderSearchResult();
+    })
+    .catch(err => {
+        console.error("Data fetch error:", err);
+        document.querySelector(".input").placeholder = "資料載入失敗，請檢查網路或檔案路徑";
     });
 
-// ================= 登入與同步邏輯 =================
 
 const authContainer = document.getElementById('auth-container');
 const btnLogin = document.getElementById('btn-login');
@@ -311,7 +356,9 @@ async function loadUserDataFromCloud(uid) {
                 localStorage.setItem("userReviews_v2", JSON.stringify(userReviews));
             }
             if (data.blockedData) {
-                blockedData = data.blockedData;
+                blockedData = data.blockedData || {};
+                if (!Array.isArray(blockedData.teachers)) blockedData.teachers = [];
+                if (!Array.isArray(blockedData.courses)) blockedData.courses = [];
                 localStorage.setItem("blockedData", JSON.stringify(blockedData));
             }
             if (data.selectedCourse) {
@@ -348,7 +395,6 @@ function saveUserDataToCloud() {
     }, 2000);
 }
 
-// ================= 核心邏輯 =================
 
 function getReviewKey(course) {
     return `${course.name}|${course.teacher}`;
@@ -419,10 +465,17 @@ function renderDepartment(departmentData) {
             const level = +target.dataset.level;
             let currentValue;
             
+            const rawText = elem.value;
+            let extractedCode = null;
+            if (rawText) {
+                const match = rawText.match(/^([A-Za-z0-9]+)/); 
+                if (match) extractedCode = match[1];
+            }
+
             try {
                 if (level === 1) {
                     if (elem.value === "全部開課單位") {
-                        setFilter({ department: false, departmentId: -1 });
+                        setFilter({ department: false, departmentId: -1, departmentCode: null });
                         if (selects[1]) hide(selects[1].parentElement);
                         if (selects[2]) hide(selects[2].parentElement);
                         return;
@@ -434,11 +487,17 @@ function renderDepartment(departmentData) {
                 else
                     currentValue = departmentData[selects[0].value][selects[1].value][elem.value];
 
-                const hasNextLevel = !(typeof currentValue === 'number');
-                if (hasNextLevel)
+                const hasNextLevel = (typeof currentValue === 'object' && currentValue !== null);
+                
+                if (hasNextLevel) {
                     renderSelect(level + 1, currentValue);
-                else
-                    setFilter({ department: true, departmentId: currentValue });
+                } else {
+                    setFilter({ 
+                        department: true, 
+                        departmentId: currentValue, 
+                        departmentCode: extractedCode 
+                    });
+                }
 
                 selects.forEach(select => {
                     if (+select.dataset.level > level + (hasNextLevel ? 1 : 0)) {
@@ -447,7 +506,7 @@ function renderDepartment(departmentData) {
                 });
             } catch (err) {
                 console.error("Department selection error:", err);
-                setFilter({ department: false, departmentId: -1 });
+                setFilter({ department: false, departmentId: -1, departmentCode: null });
             }
         }
     )
@@ -499,7 +558,6 @@ document.addEventListener("mouseout", function (event) {
     }
 })
 
-// ===================== 封鎖管理 =====================
 const btnManageBlock = document.getElementById('btn-manage-blocklist');
 if(btnManageBlock) {
     btnManageBlock.onclick = () => {
@@ -582,36 +640,30 @@ function openModal(courseId) {
     loadUserReview(data); 
 }
 
-// 自動儲存與評論邏輯
 function loadUserReview(course) {
     const key = getReviewKey(course);
     
-    // 如果沒有該課程的評論，初始化一個新的
     if (!userReviews[key]) {
         userReviews[key] = { 
             rating: 0, 
             tags: [], 
             note: "", 
-            semester: `${YEAR}-${SEMESTER}` // 只有第一次建立時設定學期
+            semester: `${YEAR}-${SEMESTER}` 
         };
     }
     
     const review = userReviews[key];
-    
-    // 如果是舊資料沒有 semester 欄位，補上當前學期（假設是現在補的）
     if (!review.semester) {
         review.semester = `${YEAR}-${SEMESTER}`;
     }
 
     const semesterHint = document.getElementById('review-semester-hint');
-    // 只有當記錄的學期與現在「不同」時，才特別顯示標籤
     if (review.semester !== `${YEAR}-${SEMESTER}`) {
         semesterHint.innerHTML = `<span class="history-badge">紀錄於 ${review.semester}</span>`;
     } else {
         semesterHint.innerHTML = "";
     }
 
-    // 處理星星評分
     const stars = document.querySelectorAll('#star-rating .star');
     const starContainer = document.querySelector('#star-rating');
     const highlightStars = (count) => {
@@ -631,7 +683,6 @@ function loadUserReview(course) {
     });
     starContainer.onmouseleave = () => { highlightStars(review.rating); };
 
-    // 處理標籤
     const tagContainer = document.getElementById('user-tags-container');
     tagContainer.innerHTML = '';
     USER_TAGS_LIST.forEach(tagName => {
@@ -650,38 +701,33 @@ function loadUserReview(course) {
         tagContainer.appendChild(label);
     });
 
-    // 處理備註與自動儲存
     const noteArea = document.getElementById('user-note');
     const statusDiv = document.getElementById('save-status');
     noteArea.value = review.note;
     
-    // 清除之前的事件，防止重複綁定
     const newNoteArea = noteArea.cloneNode(true);
     noteArea.parentNode.replaceChild(newNoteArea, noteArea);
     
-    // 綁定新的 Input 事件 (使用 Debounce)
     newNoteArea.oninput = debounce((e) => {
         statusDiv.textContent = "儲存中...";
         review.note = e.target.value;
-        // 注意：這裡不更新 semester，保留原始紀錄時間
         performAutoSave(key, review);
-    }, 1000); // 延遲 1 秒
+    }, 1000); 
 }
 
 function performAutoSave(key, review) {
     const statusDiv = document.getElementById('save-status');
     userReviews[key] = review;
     localStorage.setItem("userReviews_v2", JSON.stringify(userReviews));
-    saveUserDataToCloud(); // Sync Cloud
+    saveUserDataToCloud(); 
     
-    renderSearchResult(); // 更新搜尋列表上的標籤顯示
+    renderSearchResult(); 
     if(statusDiv) {
         statusDiv.textContent = "已自動儲存";
         setTimeout(() => { statusDiv.textContent = ""; }, 2000);
     }
 }
 
-// ===================== 側邊欄過濾器 =====================
 
 function renderTagFilters() {
     const container = document.getElementById('user-tag-filters');
@@ -739,6 +785,11 @@ function appendCourseElement(courses, search = false) {
 }
 
 function search(searchTerm) {
+    if (!blockedData || !blockedData.courses || !blockedData.teachers) {
+        console.warn("BlockedData structure invalid, search skipped.");
+        return [];
+    }
+
     const hasTagFilter = Object.values(filter.tagFilters).some(v => v !== 'ignore');
     if (!searchTerm && !(filter.department) && !(filter.period) && !hasTagFilter) return [];
     const regex = RegExp(searchTerm, 'i');
@@ -747,9 +798,17 @@ function search(searchTerm) {
         if (blockedData.courses.includes(course.id)) return false;
         if (blockedData.teachers.includes(course.teacher)) return false;
 
+        let deptMatch = true;
+        if (filter.department) {
+            const idMatch = course.dep.some(d => d == filter.departmentId);
+            const codeMatch = filter.departmentCode && course.dep.some(d => d == filter.departmentCode);
+            
+            deptMatch = idMatch || codeMatch;
+        }
+
         const basicMatch = (
             !searchTerm || course.id == searchTerm || course.teacher.match(regex) || course.name.match(regex)
-        ) && (!filter.department || course.dep.includes(filter.departmentId)) && (!filter.period || course.time.some(code => filter.periodCodes.includes(code)));
+        ) && deptMatch && (!filter.period || course.time.some(code => filter.periodCodes.includes(code)));
 
         if (!basicMatch) return false;
 
@@ -805,9 +864,7 @@ function renderPeriodBlock(course, preview = false) {
     periodBlock.className = "period modal-launcher";
     if (preview) periodBlock.className += ' preview';
     
-    // 修改：同時顯示課名與老師
     const textDiv = document.createElement("div");
-    // 使用 innerHTML 插入換行與較小的字體顯示老師
     textDiv.innerHTML = `${course.name}<br><small style="opacity: 0.8; font-size: 0.8em;">${course.teacher}</small>`;
     textDiv.style.lineHeight = "1.2";
     
