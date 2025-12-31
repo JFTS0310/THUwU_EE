@@ -40,12 +40,10 @@
         .sticky-panel::-webkit-scrollbar { display: none; }
         .sticky-panel { scrollbar-width: none; }
         
-        /* 登入相關樣式 */
         .user-profile { display: flex; align-items: center; gap: 10px; }
         .user-avatar { width: 32px; height: 32px; border-radius: 50%; }
         .history-badge { font-size: 0.7rem; background: #ffe08a; color: #000; padding: 2px 6px; border-radius: 4px; margin-left: 5px; }
 
-        /* 學分詳情 Tooltip (純 CSS 實作) */
         .credits-container { position: relative; display: inline-block; }
         .credits-detail {
             visibility: hidden;
@@ -70,13 +68,11 @@
             opacity: 1;
         }
         
-        /* Dark Mode 優化 - 針對文字清晰度 */
         body.dark-mode { background-color: #121212; color: #e0e0e0; }
         body.dark-mode .navbar { background-color: #1e1e1e; border-bottom: 1px solid #333; }
         body.dark-mode .navbar-item, body.dark-mode .navbar-link { color: #e0e0e0; }
         body.dark-mode .navbar-item:hover { background-color: #333; color: #fff; }
         
-        /* 卡片與區塊 */
         body.dark-mode .card, 
         body.dark-mode .modal-content, 
         body.dark-mode .box { background-color: #1e1e1e; color: #e0e0e0; }
@@ -84,13 +80,11 @@
         body.dark-mode .title { color: #fff; }
         body.dark-mode .label { color: #ccc; }
         
-        /* 表格 */
         body.dark-mode .timetable { background-color: #1e1e1e; }
         body.dark-mode .timetable th { color: #bbb; border-color: #444; box-shadow: inset 1px 1px 1px #333; }
         body.dark-mode .timetable td { border-color: #444; box-shadow: inset 1px 1px 1px #333; }
         body.dark-mode .timetable .period { background-color: #2d2d2d; color: #fff; border: 1px solid #444; }
         
-        /* 輸入框與選單 (關鍵：解決白底白字或黑底黑字) */
         body.dark-mode .input, 
         body.dark-mode .textarea, 
         body.dark-mode .select select {
@@ -107,24 +101,23 @@
             color: #666;
         }
         
-        /* 列表與標籤 */
         body.dark-mode .course-list > .course { background-color: #262626; color: #eee; border-bottom: 1px solid #333; }
         body.dark-mode .tag.is-white { background-color: #333; color: #fff; }
         body.dark-mode .card-footer-item { border-color: #333; color: #aaa; }
         body.dark-mode hr { background-color: #333; }
         
-        /* 自動儲存狀態文字 */
         .save-status {
             font-size: 0.75rem;
             color: #888;
             margin-top: 5px;
             text-align: right;
-            height: 1.2em; /* 預留高度 */
+            height: 1.2em;
         }
     </style>
 </head>
 
 <body>
+    <input type="file" id="file-import" accept=".json" style="display: none;">
     <nav class="navbar is-light is-fixed-top" role="navigation">
         <div class="container">
             <div class="navbar-brand">
@@ -219,6 +212,15 @@
                             <div class="dropdown-menu" id="setting" role="menu">
                                 <div class="dropdown-content has-text-left">
                                     <div class="dropdown-item"></div>
+                                    <hr class="dropdown-divider">
+                                    <div class="dropdown-item">
+                                        <button class="button is-small is-warning is-light is-fullwidth" id="btn-export-json">
+                                            匯出設定檔 (JSON)
+                                        </button>
+                                        <button class="button is-small is-info is-light is-fullwidth" id="btn-import-json" style="margin-top: 5px;">
+                                            匯入設定檔 (JSON)
+                                        </button>
+                                    </div>
                                     <hr class="dropdown-divider">
                                     <div class="dropdown-item">
                                         <button class="button is-small is-danger is-light is-fullwidth" id="btn-manage-blocklist">
