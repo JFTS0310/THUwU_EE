@@ -293,6 +293,7 @@ if (auth) {
         if (user) {
             currentUser = user;
             renderUserUI(user);
+            loadUserDataFromCloud(user.uid);
         } else {
             currentUser = null;
             renderLoginUI();
