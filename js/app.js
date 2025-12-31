@@ -8,8 +8,6 @@ const firebaseConfig = {
   measurementId: "G-Q0W2BDPC75"
 };
 
-// =================================================================================
-
 if (location.search.includes("__debug__"))
     window.onerror = (...arg) => document.querySelector("footer").textContent = arg;
 
@@ -28,7 +26,6 @@ const Toast = Swal.mixin({
 const hide = elem => elem.classList.add("is-hidden");
 const show = elem => elem.classList.remove("is-hidden");
 
-// 工具：防抖動函數 (用於自動儲存)
 function debounce(func, delay) {
     let timer;
     return function (...args) {
@@ -46,7 +43,7 @@ const USER_TAGS_LIST = ["考試", "點名", "分組", "書面報告", "上台報
 let userReviews = {};
 try {
     userReviews = JSON.parse(localStorage.getItem("userReviews_v2")) || {};
-} catch(e) { console.error("UserReviews parse error", e); userReviews = {}; }
+} catch(e) { console.error(e); userReviews = {}; }
 
 let blockedData = { teachers: [], courses: [] };
 try {
@@ -56,12 +53,12 @@ try {
         if (!Array.isArray(blockedData.teachers)) blockedData.teachers = [];
         if (!Array.isArray(blockedData.courses)) blockedData.courses = [];
     }
-} catch(e) { console.error("BlockedData parse error", e); }
+} catch(e) { console.error(e); }
 
 let filter = {
     department: false,
-    departmentId: -1,     
-    departmentCode: null, 
+    departmentId: -1,
+    departmentCode: null,
     period: false,
     periodCodes: [],
     tagFilters: {} 
@@ -70,7 +67,6 @@ let filter = {
 let config = {};
 let currentUser = null; 
 
-// --- Firebase 初始化 ---
 let db = null;
 let auth = null;
 
@@ -83,12 +79,11 @@ try {
         }
         auth = firebase.auth();
         db = firebase.firestore();
-        console.log("Firebase initialized successfully");
     } else {
         console.warn("Firebase SDK not loaded.");
     }
 } catch (e) {
-    console.error("Firebase init failed:", e);
+    console.error(e);
 }
 
 const supportBigInt = typeof BigInt !== 'undefined';
@@ -115,7 +110,6 @@ function loadFromLocalStorage() {
     return JSON.parse(localStorage.getItem("selectedCourse")) || {};
 }
 
-// 學分計算與 Tooltip 更新
 function updateCreditsUI() {
     let total = 0;
     let details = { "必修": 0, "選修": 0, "通識": 0, "其他": 0 };
@@ -226,7 +220,6 @@ if (filterHeader) {
     };
 }
 
-// === 核心功能：遞迴過濾空的系所 ===
 function filterDepartments(deptData, activeDepIds) {
     const filtered = {};
     let hasValidChild = false;
@@ -253,7 +246,6 @@ function filterDepartments(deptData, activeDepIds) {
     return filtered;
 }
 
-// Fetch data.
 Promise.all([
     `course-data/${YEAR}${SEMESTER}-data.json`,
     `course-data/department.json`,
@@ -289,10 +281,9 @@ Promise.all([
         renderSearchResult();
     })
     .catch(err => {
-        console.error("Data fetch error:", err);
+        console.error(err);
         document.querySelector(".input").placeholder = "資料載入失敗，請檢查網路或檔案路徑";
     });
-
 
 const authContainer = document.getElementById('auth-container');
 const btnLogin = document.getElementById('btn-login');
@@ -302,7 +293,6 @@ if (auth) {
         if (user) {
             currentUser = user;
             renderUserUI(user);
-            loadUserDataFromCloud(user.uid);
         } else {
             currentUser = null;
             renderLoginUI();
@@ -327,9 +317,27 @@ function renderUserUI(user) {
     authContainer.innerHTML = `
         <div class="user-profile">
             <img src="${user.photoURL}" class="user-avatar" title="${user.displayName}">
+             <button class="button is-small is-primary is-light" id="btn-cloud-save" title="將目前課表上傳到雲端備份">
+                <span class="icon"><i class="fas fa-cloud-upload-alt"></i></span>
+                <span>上傳備份</span>
+            </button>
+            <button class="button is-small is-info is-light" id="btn-cloud-load" title="從雲端讀取備份並覆蓋本地進度">
+                <span class="icon"><i class="fas fa-cloud-download-alt"></i></span>
+                <span>讀取備份</span>
+            </button>
             <button class="button is-small is-light" onclick="firebase.auth().signOut()">登出</button>
         </div>
     `;
+    
+    document.getElementById('btn-cloud-load').onclick = () => {
+        if(confirm("確定要從雲端讀取進度嗎？\n這將會覆蓋你目前尚未儲存的變更！")) {
+            loadUserDataFromCloud(user.uid);
+        }
+    };
+
+    document.getElementById('btn-cloud-save').onclick = () => {
+        saveUserDataToCloud();
+    };
 }
 
 function renderLoginUI() {
@@ -346,11 +354,12 @@ function renderLoginUI() {
 
 async function loadUserDataFromCloud(uid) {
     if (!db) return;
-    Toast.fire({ title: '正在同步雲端資料...', icon: 'info' });
+    Toast.fire({ title: '正在讀取雲端資料...', icon: 'info' });
     try {
         const doc = await db.collection('users').doc(uid).get();
         if (doc.exists) {
             const data = doc.data();
+            
             if (data.userReviews) {
                 userReviews = data.userReviews;
                 localStorage.setItem("userReviews_v2", JSON.stringify(userReviews));
@@ -366,35 +375,35 @@ async function loadUserDataFromCloud(uid) {
                 localStorage.setItem("selectedCourse", JSON.stringify(selectedCourse));
                 renderAllSelected();
             }
-            Toast.fire({ title: '同步完成！', icon: 'success' });
+            Toast.fire({ title: '下載完成！', icon: 'success' });
             renderSearchResult();
         } else {
-            saveUserDataToCloud();
+            Toast.fire({ title: '雲端尚無存檔', icon: 'warning' });
         }
     } catch (e) {
-        console.error("Load cloud data error:", e);
+        console.error(e);
+        Toast.fire({ title: '讀取失敗 (請檢查權限或網路)', icon: 'error' });
     }
 }
 
-let saveTimeout;
-function saveUserDataToCloud() {
+async function saveUserDataToCloud() {
     if (!currentUser || !db) return;
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(async () => {
-        try {
-            await db.collection('users').doc(currentUser.uid).set({
-                userReviews: userReviews,
-                blockedData: blockedData,
-                selectedCourse: selectedCourse,
-                lastUpdate: new Date()
-            }, { merge: true });
-            console.log("Saved to cloud");
-        } catch (e) {
-            console.error("Save to cloud error:", e);
-        }
-    }, 2000);
+    
+    Toast.fire({ title: '正在上傳備份...', icon: 'info' });
+    try {
+        await db.collection('users').doc(currentUser.uid).set({
+            userReviews: userReviews,
+            blockedData: blockedData,
+            selectedCourse: selectedCourse,
+            lastUpdate: new Date()
+        }, { merge: true });
+        console.log("Manual saved to cloud");
+        Toast.fire({ title: '備份成功！', icon: 'success' });
+    } catch (e) {
+        console.error(e);
+        Toast.fire({ title: '上傳失敗 (請檢查權限或網路)', icon: 'error' });
+    }
 }
-
 
 function getReviewKey(course) {
     return `${course.name}|${course.teacher}`;
@@ -505,7 +514,7 @@ function renderDepartment(departmentData) {
                     }
                 });
             } catch (err) {
-                console.error("Department selection error:", err);
+                console.error(err);
                 setFilter({ department: false, departmentId: -1, departmentCode: null });
             }
         }
@@ -586,8 +595,7 @@ window.unblock = (type, value) => {
     else blockedData.courses = blockedData.courses.filter(c => c !== value);
     
     localStorage.setItem("blockedData", JSON.stringify(blockedData));
-    saveUserDataToCloud(); 
-    Toast.fire({icon: 'success', title: '已解除封鎖'});
+    Toast.fire({icon: 'success', title: '已解除封鎖 (記得備份到雲端)'});
     renderSearchResult();
     Swal.close();
 };
@@ -599,13 +607,10 @@ function toggleBlock(type, value) {
         if(!blockedData.courses.includes(value)) blockedData.courses.push(value);
     }
     localStorage.setItem("blockedData", JSON.stringify(blockedData));
-    saveUserDataToCloud(); 
-    Toast.fire({ icon: 'warning', title: `已封鎖 ${value}`});
+    Toast.fire({ icon: 'warning', title: `已封鎖 ${value} (記得備份到雲端)`});
     renderSearchResult(); 
     document.querySelector('.modal').classList.remove('is-active'); 
 }
-
-// ===================== Modal =====================
 
 function openModal(courseId) {
     const modal = document.querySelector('.modal');
@@ -719,15 +724,13 @@ function performAutoSave(key, review) {
     const statusDiv = document.getElementById('save-status');
     userReviews[key] = review;
     localStorage.setItem("userReviews_v2", JSON.stringify(userReviews));
-    saveUserDataToCloud(); 
     
     renderSearchResult(); 
     if(statusDiv) {
-        statusDiv.textContent = "已自動儲存";
+        statusDiv.textContent = "已暫存於本地 (記得上傳備份)";
         setTimeout(() => { statusDiv.textContent = ""; }, 2000);
     }
 }
-
 
 function renderTagFilters() {
     const container = document.getElementById('user-tag-filters');
@@ -828,7 +831,6 @@ function search(searchTerm) {
 function save() {
     localStorage.setItem("selectedCourse", JSON.stringify(selectedCourse));
     localStorage.setItem("lastUpdate", +new Date());
-    saveUserDataToCloud(); 
 }
 
 function toggleCourse(courseId) {
