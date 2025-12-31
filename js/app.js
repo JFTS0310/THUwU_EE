@@ -66,6 +66,7 @@ let filter = {
 
 let config = {};
 let currentUser = null; 
+let isDataLoaded = false;
 
 let db = null;
 let auth = null;
@@ -257,6 +258,7 @@ Promise.all([
         courseData = data;
         gradingData = grading || {}; 
         selectedCourse = share ? loadFromShareLink() : loadFromLocalStorage();
+        isDataLoaded = true;
 
         document.querySelector(".input").disabled = false;
         document.querySelector(".input").placeholder = "課號 / 課名 / 老師";
@@ -279,6 +281,10 @@ Promise.all([
 
         renderDepartment(filteredDeptData);
         renderSearchResult();
+        
+        if (currentUser) {
+            loadUserDataFromCloud(currentUser.uid);
+        }
     })
     .catch(err => {
         console.error(err);
@@ -293,7 +299,9 @@ if (auth) {
         if (user) {
             currentUser = user;
             renderUserUI(user);
-            loadUserDataFromCloud(user.uid);
+            if (isDataLoaded) {
+                loadUserDataFromCloud(user.uid);
+            }
         } else {
             currentUser = null;
             renderLoginUI();
@@ -374,10 +382,15 @@ async function loadUserDataFromCloud(uid) {
             if (data.selectedCourse) {
                 selectedCourse = data.selectedCourse;
                 localStorage.setItem("selectedCourse", JSON.stringify(selectedCourse));
-                renderAllSelected();
             }
+            
+            if (isDataLoaded) {
+                renderAllSelected();
+                renderSearchResult();
+                updateCreditsUI();
+            }
+            
             Toast.fire({ title: '下載完成！', icon: 'success' });
-            renderSearchResult();
         } else {
             Toast.fire({ title: '雲端尚無存檔', icon: 'warning' });
         }
@@ -588,6 +601,63 @@ if(btnManageBlock) {
         }
 
         Swal.fire({ title: '封鎖名單管理', html: htmlContent, showConfirmButton: true });
+    };
+}
+
+const btnExportJson = document.getElementById('btn-export-json');
+if (btnExportJson) {
+    btnExportJson.onclick = () => {
+        const dataToExport = {
+            selectedCourse: selectedCourse,
+            blockedData: blockedData,
+            userReviews: userReviews,
+            timestamp: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `thuwu-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+}
+
+const btnImportJson = document.getElementById('btn-import-json');
+const fileInput = document.getElementById('file-import');
+if (btnImportJson && fileInput) {
+    btnImportJson.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const importedData = JSON.parse(event.target.result);
+                if (importedData.selectedCourse) {
+                    selectedCourse = importedData.selectedCourse;
+                    localStorage.setItem("selectedCourse", JSON.stringify(selectedCourse));
+                }
+                if (importedData.blockedData) {
+                    blockedData = importedData.blockedData;
+                    localStorage.setItem("blockedData", JSON.stringify(blockedData));
+                }
+                if (importedData.userReviews) {
+                    userReviews = importedData.userReviews;
+                    localStorage.setItem("userReviews_v2", JSON.stringify(userReviews));
+                }
+                renderAllSelected();
+                renderSearchResult();
+                Toast.fire({ icon: 'success', title: '匯入成功！' });
+            } catch (err) {
+                console.error(err);
+                Toast.fire({ icon: 'error', title: '匯入失敗：檔案格式錯誤' });
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
     };
 }
 
