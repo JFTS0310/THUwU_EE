@@ -1,12 +1,16 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyBxMmx_5uYfD1R_yRTxbMsABErZMuMcMTs",
-  authDomain: "thuee-stu.firebaseapp.com",
-  projectId: "thuee-stu",
-  storageBucket: "thuee-stu.firebasestorage.app",
-  messagingSenderId: "625167909336",
-  appId: "1:625167909336:web:dbbc4a6ed5225f965132ad",
-  measurementId: "G-Q0W2BDPC75"
+  apiKey: "AIzaSyBnq229MlVplzXrNMWe9ArSn3e3LKhap00",
+  authDomain: "thu-ee-2e68d.firebaseapp.com",
+  projectId: "thu-ee-2e68d",
+  storageBucket: "thu-ee-2e68d.firebasestorage.app",
+  messagingSenderId: "689191907568",
+  appId: "1:689191907568:web:3dc3414c74c09a971c5235",
+  measurementId: "G-CP2L4RVYD4"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
 if (location.search.includes("__debug__"))
     window.onerror = (...arg) => document.querySelector("footer").textContent = arg;
