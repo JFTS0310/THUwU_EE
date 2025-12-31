@@ -225,8 +225,6 @@ footer {
     pointer-events: none;
 }
 
-
-/* animate.css */
 @keyframes backInDown {
     0% {
         transform: translateY(-1200px) scale(0.7);
@@ -280,12 +278,9 @@ footer {
     margin-right: 0.25rem;
 }
 
-/* ============ 新增樣式 ============ */
-
-/* 星星評分 - 修正版 */
 #star-rating {
     display: flex;
-    flex-direction: row; /* 確保從左到右排列 */
+    flex-direction: row; 
 }
 
 #star-rating .star {
@@ -296,12 +291,10 @@ footer {
     margin-right: 2px;
 }
 
-/* 使用 .is-active 類別來控制顏色，不再依賴兄弟選擇器 */
 #star-rating .star.is-active {
     color: #ffdd57;
 }
 
-/* 用戶標籤 Checkbox */
 .tags-input-container {
     display: flex;
     flex-wrap: wrap;
@@ -320,7 +313,6 @@ footer {
     margin-right: 0.3rem;
 }
 
-/* 篩選器樣式與折疊效果 */
 #user-tag-filters .tag-filter-item {
     margin-bottom: 0.3rem;
     display: flex;
@@ -338,7 +330,6 @@ footer {
     transition: transform 0.3s ease;
 }
 
-/* 當折疊框打開時，圖示旋轉 180 度 */
 #user-tag-filter-container.is-expanded .transition-icon {
     transform: rotate(180deg);
 }
