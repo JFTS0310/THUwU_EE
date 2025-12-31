@@ -8,10 +8,6 @@ const firebaseConfig = {
   measurementId: "G-CP2L4RVYD4"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-
 if (location.search.includes("__debug__"))
     window.onerror = (...arg) => document.querySelector("footer").textContent = arg;
 
