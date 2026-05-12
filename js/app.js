@@ -147,7 +147,7 @@ if (location.search.includes("share=")) {
 
 const styleFix = document.createElement('style');
 styleFix.innerHTML = `
-    .timetable { width: 100% !important; table-layout: auto !important; }
+    .timetable { width: 100% !important; table-layout: fixed !important; }
     .timetable th, .timetable td { white-space: normal !important; word-wrap: break-word !important; overflow-wrap: break-word !important; text-align: center; vertical-align: middle !important; }
     .timetable th:first-child { width: 80px !important; max-width: 80px !important; padding: 4px 0 !important; }
     .timetable th:first-child div:first-child { font-size: 1.1rem; font-weight: bold; margin-bottom: 6px; }
@@ -667,7 +667,7 @@ function renderAllSelected() {
         selectedContainer.appendChild(details);
     });
 
-    // Wrap conflict periods in a flex container so the column expands naturally
+    // Wrap conflict periods in a flex container
     document.querySelectorAll('.timetable td.has-conflict').forEach(td => {
         const periods = Array.from(td.querySelectorAll('.period:not(.preview)'));
         if (periods.length < 2) return;
@@ -675,6 +675,33 @@ function renderAllSelected() {
         container.className = 'period-container';
         periods.forEach(p => container.appendChild(p));
         td.appendChild(container);
+    });
+
+    adjustColumnWidths();
+}
+
+function adjustColumnWidths() {
+    const maxPerDay = [1, 1, 1, 1, 1, 1, 1];
+    document.querySelectorAll('.timetable td.has-conflict').forEach(td => {
+        const id = td.id;
+        if (!id || id.length < 2) return;
+        const day = parseInt(id[0]) - 1;
+        const count = td.querySelectorAll('.period:not(.preview)').length;
+        if (day >= 0 && day < 7) maxPerDay[day] = Math.max(maxPerDay[day], count);
+    });
+
+    const totalWeight = maxPerDay.reduce((a, b) => a + b, 0);
+    const table = document.querySelector('.timetable');
+    let colgroup = table.querySelector('colgroup');
+    if (!colgroup) {
+        colgroup = document.createElement('colgroup');
+        table.insertBefore(colgroup, table.firstChild);
+        for (let i = 0; i < 8; i++) colgroup.appendChild(document.createElement('col'));
+    }
+    const cols = Array.from(colgroup.querySelectorAll('col'));
+    cols[0].style.width = '8%';
+    maxPerDay.forEach((w, i) => {
+        cols[i + 1].style.width = `${(w / totalWeight) * 92}%`;
     });
 }
 

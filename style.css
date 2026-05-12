@@ -50,7 +50,7 @@ body.dark-mode .footer a:hover {
 
 .timetable {
     background-color: #ffffff;
-    table-layout: auto;
+    table-layout: fixed;
     width: 100%;
     min-width: 770px;
     text-align: center;
@@ -378,8 +378,8 @@ body.dark-mode .footer a:hover {
 }
 
 .period-container .period {
-    flex: none;
-    width: 90px;
+    flex: 1;
+    min-width: 0;
     height: 64px;
     font-size: 0.72rem;
     padding: 2px 3px;
