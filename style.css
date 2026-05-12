@@ -66,9 +66,13 @@ body.dark-mode .footer a:hover {
 
 .timetable th {
     box-shadow: inset 1px 1px 1px #ECEFF1;
-    font-weight: 400;
-    font-size: 14px;
+    font-weight: 600;
+    font-size: 13px;
     text-transform: uppercase;
+    background-color: #f5f7fa;
+    color: #4a5568;
+    padding: 0.6em 0.3em;
+    letter-spacing: 0.03em;
 }
 
 .timetable td {
@@ -76,6 +80,12 @@ body.dark-mode .footer a:hover {
     box-shadow: inset 1px 1px 1px #ECEFF1;
     padding: 0;
     height: 64px;
+    min-width: 65px;
+    border-left: 2px solid #c8ccd6;
+}
+
+.timetable thead th:not(:first-child) {
+    border-left: 2px solid #c8ccd6;
 }
 
 .find-empty-overlay {
@@ -83,7 +93,7 @@ body.dark-mode .footer a:hover {
     top: 0;
     transition: .5s ease;
     cursor: pointer;
-    height: 64px;
+    height: 100%;
     width: 100%;
     opacity: 0;
 }
@@ -139,13 +149,20 @@ body.dark-mode .footer a:hover {
     z-index: 5;
     position: relative;
     cursor: pointer;
-    display: block;
-    background-color: #f9f9f9;
-    padding: 0.5em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background-color: #eef2ff;
+    padding: 0.3em 0.4em;
     width: 100%;
     height: 100%;
     -webkit-transition: .2s ease box-shadow, .2s ease transform;
     transition: .2s ease box-shadow, .2s ease transform;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    line-height: 1.3;
 }
 
 .timetable .period.preview {
@@ -173,6 +190,21 @@ body.dark-mode .footer a:hover {
     text-overflow: ellipsis;
     word-wrap: break-word;
 }
+
+/* course type color coding: 0=選修 1=必修 2=通識 3=體育 4=軍訓 5=外語 */
+.timetable .period[data-type="0"] { background-color: #e8eaf6; }
+.timetable .period[data-type="1"] { background-color: #fce4ec; }
+.timetable .period[data-type="2"] { background-color: #e0f2f1; }
+.timetable .period[data-type="3"] { background-color: #e8f5e9; }
+.timetable .period[data-type="4"] { background-color: #fff8e1; }
+.timetable .period[data-type="5"] { background-color: #f3e5f5; }
+
+body.dark-mode .timetable .period[data-type="0"] { background-color: #2a2d4a; }
+body.dark-mode .timetable .period[data-type="1"] { background-color: #3d1f2a; }
+body.dark-mode .timetable .period[data-type="2"] { background-color: #1a3030; }
+body.dark-mode .timetable .period[data-type="3"] { background-color: #1a2e1a; }
+body.dark-mode .timetable .period[data-type="4"] { background-color: #2e2a10; }
+body.dark-mode .timetable .period[data-type="5"] { background-color: #2a1a30; }
 
 @keyframes pulse {
     from {
@@ -359,14 +391,30 @@ body.dark-mode .footer a:hover {
     color: #fff;
 }
 
-.conflict-block {
+.timetable td.has-conflict {
+    height: 64px;
+    padding: 0;
+}
+
+.period-container {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-    font-size: 0.9rem;
-    border: 1px solid white;
+    flex-direction: row;
+    align-items: stretch;
+    height: 64px;
+}
+
+.period-container .period {
+    flex: 1;
+    min-width: 0;
+    height: 64px;
+    font-size: 0.7rem;
+    padding: 2px 3px;
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 0;
+}
+
+body.show-conflict-warning .timetable td.has-conflict {
+    box-shadow: inset 0 0 0 2px #f14668;
 }
 
 .conflict-accordion {
@@ -424,9 +472,9 @@ body.dark-mode .title { color: #fff; }
 body.dark-mode .label { color: #ccc; }
 
 body.dark-mode .timetable { background-color: #1e1e1e; }
-body.dark-mode .timetable th { color: #bbb; border-color: #444; box-shadow: inset 1px 1px 1px #333; }
+body.dark-mode .timetable th { background-color: #2d2d2d; color: #a0aec0; border-color: #444; box-shadow: inset 1px 1px 1px #333; }
 body.dark-mode .timetable td { border-color: #444; box-shadow: inset 1px 1px 1px #333; }
-body.dark-mode .timetable .period { background-color: #2d2d2d; color: #fff; border: 1px solid #444; }
+body.dark-mode .timetable .period { background-color: #2d3748; color: #e2e8f0; border: 1px solid #4a5568; }
 
 body.dark-mode .input, 
 body.dark-mode .textarea, 
