@@ -147,7 +147,7 @@ if (location.search.includes("share=")) {
 
 const styleFix = document.createElement('style');
 styleFix.innerHTML = `
-    .timetable { width: 100% !important; table-layout: fixed !important; }
+    .timetable { width: 100% !important; table-layout: auto !important; }
     .timetable th, .timetable td { white-space: normal !important; word-wrap: break-word !important; overflow-wrap: break-word !important; text-align: center; vertical-align: middle !important; }
     .timetable th:first-child { width: 80px !important; max-width: 80px !important; padding: 4px 0 !important; }
     .timetable th:first-child div:first-child { font-size: 1.1rem; font-weight: bold; margin-bottom: 6px; }
@@ -604,6 +604,7 @@ function getConnectedComponents(ids, adj) {
 function renderAllSelected() {
     updateCreditsUI();
     document.querySelectorAll(".timetable .period").forEach(elem => elem.remove());
+    document.querySelectorAll('.timetable .period-container').forEach(elem => elem.remove());
     document.querySelectorAll('.timetable td.has-conflict').forEach(td => td.classList.remove('has-conflict'));
     
     const selectedContainer = document.querySelector(".selected");
@@ -664,6 +665,16 @@ function renderAllSelected() {
         
         details.appendChild(contentDiv);
         selectedContainer.appendChild(details);
+    });
+
+    // Wrap conflict periods in a flex container so the column expands naturally
+    document.querySelectorAll('.timetable td.has-conflict').forEach(td => {
+        const periods = Array.from(td.querySelectorAll('.period:not(.preview)'));
+        if (periods.length < 2) return;
+        const container = document.createElement('div');
+        container.className = 'period-container';
+        periods.forEach(p => container.appendChild(p));
+        td.appendChild(container);
     });
 }
 

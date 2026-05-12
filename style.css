@@ -50,7 +50,7 @@ body.dark-mode .footer a:hover {
 
 .timetable {
     background-color: #ffffff;
-    table-layout: fixed;
+    table-layout: auto;
     width: 100%;
     min-width: 770px;
     text-align: center;
@@ -76,6 +76,12 @@ body.dark-mode .footer a:hover {
     box-shadow: inset 1px 1px 1px #ECEFF1;
     padding: 0;
     height: 64px;
+    min-width: 65px;
+    border-left: 2px solid #c8ccd6;
+}
+
+.timetable thead th:not(:first-child) {
+    border-left: 2px solid #c8ccd6;
 }
 
 .find-empty-overlay {
@@ -361,18 +367,23 @@ body.dark-mode .footer a:hover {
 
 .timetable td.has-conflict {
     height: 64px;
+    padding: 0;
+}
+
+.period-container {
     display: flex;
     flex-direction: row;
     align-items: stretch;
+    height: 64px;
 }
 
-.timetable td.has-conflict .period {
-    flex: 1;
-    height: 100%;
-    font-size: 0.75rem;
+.period-container .period {
+    flex: none;
+    width: 90px;
+    height: 64px;
+    font-size: 0.72rem;
     padding: 2px 3px;
-    border-right: 1px solid rgba(0, 0, 0, 0.08);
-    border-bottom: none;
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 body.show-conflict-warning .timetable td.has-conflict {
