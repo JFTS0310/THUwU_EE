@@ -360,14 +360,19 @@ body.dark-mode .footer a:hover {
 }
 
 .timetable td.has-conflict {
-    height: auto;
-    min-height: 64px;
+    height: 64px;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
 }
 
 .timetable td.has-conflict .period {
-    height: auto;
-    min-height: 32px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    flex: 1;
+    height: 100%;
+    font-size: 0.75rem;
+    padding: 2px 3px;
+    border-right: 1px solid rgba(0, 0, 0, 0.08);
+    border-bottom: none;
 }
 
 body.show-conflict-warning .timetable td.has-conflict {
