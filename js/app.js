@@ -1128,6 +1128,7 @@ function renderPeriodBlock(course, preview = false, isConflict = false, conflict
 
         const periodBlock = document.createElement("div");
         periodBlock.dataset.id = course.id;
+        periodBlock.dataset.type = course.type;
         periodBlock.className = "period modal-launcher";
         if (preview) periodBlock.classList.add('preview');
         if (color) periodBlock.style.borderLeft = `5px solid ${color}`;
