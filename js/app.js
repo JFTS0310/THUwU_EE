@@ -210,8 +210,8 @@ periodOrder.forEach(item => {
 
 const settingOptions = [
     { key: "trimTimetable", description: "我不用早出晚歸", callback: value => value ? document.querySelectorAll(".extra").forEach(hide) : document.querySelectorAll(".extra").forEach(elem => (!elem.classList.contains("weekend") || !config.hideWeekend) && show(elem)) },
-    { key: "hideWeekend", description: "我週末沒課", callback: value => value ? document.querySelectorAll(".weekend").forEach(hide) : document.querySelectorAll(".weekend").forEach(elem => (!elem.classList.contains("extra") || !config.trimTimetable) && show(elem)) },
-    { key: "hideTag", description: "隱藏課程列表中的 tag", callback: value => { const cssSheet = document.getElementById("custom-style").sheet; value ? cssSheet.insertRule(".course .tag{display: none;}", 0) : cssSheet.cssRules.length && cssSheet.deleteRule(0) } },
+    { key: "hideWeekend", description: "我週末沒課", callback: value => { value ? document.querySelectorAll(".weekend").forEach(hide) : document.querySelectorAll(".weekend").forEach(elem => (!elem.classList.contains("extra") || !config.trimTimetable) && show(elem)); adjustColumnWidths(); } },
+    { key: "hideTag", description: "隱藏課程 tag", callback: value => value ? document.body.classList.add('hide-tags') : document.body.classList.remove('hide-tags') },
     { key: "darkMode", description: "深色模式", callback: value => { value ? document.body.classList.add('dark-mode') : document.body.classList.remove('dark-mode') } },
     { key: "showConflictWarning", description: "顯示衝堂紅框警告", callback: value => { value ? document.body.classList.add('show-conflict-warning') : document.body.classList.remove('show-conflict-warning') } }
 ];
@@ -690,7 +690,8 @@ function adjustColumnWidths() {
         if (day >= 0 && day < 7) maxPerDay[day] = Math.max(maxPerDay[day], count);
     });
 
-    const totalWeight = maxPerDay.reduce((a, b) => a + b, 0);
+    if (config.hideWeekend) { maxPerDay[5] = 0; maxPerDay[6] = 0; }
+
     const table = document.querySelector('.timetable');
     let colgroup = table.querySelector('colgroup');
     if (!colgroup) {
@@ -700,8 +701,9 @@ function adjustColumnWidths() {
     }
     const cols = Array.from(colgroup.querySelectorAll('col'));
     cols[0].style.width = '8%';
+    const totalWeight = maxPerDay.reduce((a, b) => a + b, 0) || 1;
     maxPerDay.forEach((w, i) => {
-        cols[i + 1].style.width = `${(w / totalWeight) * 92}%`;
+        cols[i + 1].style.width = w === 0 ? '0' : `${(w / totalWeight) * 92}%`;
     });
 }
 
