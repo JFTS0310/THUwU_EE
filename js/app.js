@@ -212,7 +212,8 @@ const settingOptions = [
     { key: "trimTimetable", description: "我不用早出晚歸", callback: value => value ? document.querySelectorAll(".extra").forEach(hide) : document.querySelectorAll(".extra").forEach(elem => (!elem.classList.contains("weekend") || !config.hideWeekend) && show(elem)) },
     { key: "hideWeekend", description: "我週末沒課", callback: value => value ? document.querySelectorAll(".weekend").forEach(hide) : document.querySelectorAll(".weekend").forEach(elem => (!elem.classList.contains("extra") || !config.trimTimetable) && show(elem)) },
     { key: "hideTag", description: "隱藏課程列表中的 tag", callback: value => { const cssSheet = document.getElementById("custom-style").sheet; value ? cssSheet.insertRule(".course .tag{display: none;}", 0) : cssSheet.cssRules.length && cssSheet.deleteRule(0) } },
-    { key: "darkMode", description: "深色模式", callback: value => { value ? document.body.classList.add('dark-mode') : document.body.classList.remove('dark-mode') } }
+    { key: "darkMode", description: "深色模式", callback: value => { value ? document.body.classList.add('dark-mode') : document.body.classList.remove('dark-mode') } },
+    { key: "showConflictWarning", description: "顯示衝堂紅框警告", callback: value => { value ? document.body.classList.add('show-conflict-warning') : document.body.classList.remove('show-conflict-warning') } }
 ];
 
 renderConfig(settingOptions);
@@ -603,7 +604,7 @@ function getConnectedComponents(ids, adj) {
 function renderAllSelected() {
     updateCreditsUI();
     document.querySelectorAll(".timetable .period").forEach(elem => elem.remove());
-    document.querySelectorAll('.course-list > .course').forEach(el => el.style.borderLeft = 'none');
+    document.querySelectorAll('.timetable td.has-conflict').forEach(td => td.classList.remove('has-conflict'));
     
     const selectedContainer = document.querySelector(".selected");
     if (selectedContainer) selectedContainer.innerHTML = '';
@@ -1078,73 +1079,31 @@ function toggleCourse(courseId) {
 
 function renderPeriodBlock(course, preview = false, isConflict = false, conflictGroupIndex = null) {
     const periods = course.time;
-    
-    if (isConflict && !preview) {
-        const color = getConflictColor(conflictGroupIndex);
-        periods.forEach(period => {
-            const blank = document.getElementById(period);
-            if (!blank) return;
-            
-            let overlapCount = 0;
-            for(const cid in selectedCourse) {
-                if(courseData[cid] && courseData[cid].time.includes(period)) {
-                    overlapCount++;
-                }
-            }
+    const color = isConflict ? getConflictColor(conflictGroupIndex) : null;
 
-            if (overlapCount > 1) {
-                let conflictBlock = blank.querySelector('.period.conflict-block');
-                if(!conflictBlock) {
-                    conflictBlock = document.createElement("div");
-                    conflictBlock.className = "period conflict-block";
-                    conflictBlock.style.backgroundColor = color;
-                    conflictBlock.innerHTML = "<div>衝堂</div>";
-                    blank.appendChild(conflictBlock);
-                } else {
-                     conflictBlock.style.backgroundColor = color;
-                }
-            } else {
-                const existBlock = blank.querySelector(".period");
-                if (!existBlock) {
-                    const periodBlock = document.createElement("div");
-                    periodBlock.dataset.id = course.id;
-                    periodBlock.className = "period modal-launcher";
-                    periodBlock.style.borderLeft = `5px solid ${color}`; 
-                    
-                    const textDiv = document.createElement("div");
-                    textDiv.innerHTML = `${course.name}<br><small style="opacity: 0.8; font-size: 0.8em;">${course.teacher}</small>`;
-                    textDiv.style.lineHeight = "1.2";
-                    periodBlock.appendChild(textDiv);
-                    blank.appendChild(periodBlock);
-                }
-            }
-        });
-        return;
-    }
-
-    const periodBlock = document.createElement("div");
-    periodBlock.dataset.id = course.id;
-    periodBlock.className = "period modal-launcher";
-    if (preview) periodBlock.className += ' preview';
-    
-    const textDiv = document.createElement("div");
-    textDiv.innerHTML = `${course.name}<br><small style="opacity: 0.8; font-size: 0.8em;">${course.teacher}</small>`;
-    textDiv.style.lineHeight = "1.2";
-    
-    periodBlock.appendChild(textDiv);
-    
     periods.forEach(period => {
         const blank = document.getElementById(period);
         if (!blank) return;
-        
-        if (!preview) {
-            const conflict = blank.querySelector('.period.conflict-block');
-            if(conflict) return;
-        }
 
-        const existBlock = blank.querySelector(".period");
-        if (existBlock && existBlock.dataset.id === course.id) { existBlock.classList.remove("preview"); } 
-        else if (!blank.querySelector(".period:not(.preview)")) { const clone = document.importNode(periodBlock, true); blank.appendChild(clone) }
+        if (preview && blank.querySelector('.period:not(.preview)')) return;
+        if (!preview && blank.querySelector(`.period[data-id="${course.id}"]`)) return;
+
+        const periodBlock = document.createElement("div");
+        periodBlock.dataset.id = course.id;
+        periodBlock.className = "period modal-launcher";
+        if (preview) periodBlock.classList.add('preview');
+        if (color) periodBlock.style.borderLeft = `5px solid ${color}`;
+
+        const textDiv = document.createElement("div");
+        textDiv.innerHTML = `${course.name}<br><small style="opacity: 0.8; font-size: 0.8em;">${course.teacher}</small>`;
+        textDiv.style.lineHeight = "1.2";
+        periodBlock.appendChild(textDiv);
+
+        blank.appendChild(periodBlock);
+
+        if (!preview && blank.querySelectorAll('.period:not(.preview)').length > 1) {
+            blank.classList.add('has-conflict');
+        }
     });
 }
 
@@ -1209,6 +1168,10 @@ document.getElementById("import").onclick = () => {
 }
 
 document.getElementById("copy-link").onclick = () => {
+    if (Object.keys(selectedCourse).length === 0) {
+        Toast.fire({ icon: 'warning', title: '尚未選擇任何課程' });
+        return;
+    }
     const shareKey = BigInt(Object.keys(selectedCourse).join('')).toString(36);
     const link = `${APP_URL}?share=${shareKey}`;
     const copy = document.createElement("div"); copy.textContent = link; document.body.appendChild(copy);
@@ -1222,8 +1185,11 @@ document.getElementById("copy-link").onclick = () => {
 }
 
 document.getElementById("download").onclick = () => {
-    const node = document.getElementById('timetable')
-    document.querySelectorAll(".period").forEach(elem => elem.innerHTML += `<p class="tmp">${courseData[elem.dataset.id].classroom}</p>`)
+    const node = document.getElementById('timetable');
+    document.querySelectorAll(".period:not(.preview)").forEach(elem => {
+        const c = courseData[elem.dataset.id];
+        if (c) elem.innerHTML += `<p class="tmp">${c.classroom || ''}</p>`;
+    });
     domtoimage.toPng(node).then(function (dataUrl) {
             var link = document.createElement('a'); link.href = dataUrl; link.download = '課表.png';
             document.body.appendChild(link); link.click(); document.body.removeChild(link);
