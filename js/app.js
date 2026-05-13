@@ -37,17 +37,21 @@ function debounce(func, delay) {
 function animatedHide(elems, duration = 300) {
     elems = Array.from(elems);
     if (!elems.length) return;
-    elems.forEach(el => {
-        el.style.transition = `opacity ${duration}ms ease`;
-        el.style.opacity = '0';
-    });
-    setTimeout(() => {
+    // Commit current opacity before starting transition
+    elems.forEach(el => { el.style.transition = ''; el.style.opacity = '1'; });
+    requestAnimationFrame(() => requestAnimationFrame(() => {
         elems.forEach(el => {
-            el.classList.add('is-hidden');
-            el.style.opacity = '';
-            el.style.transition = '';
+            el.style.transition = `opacity ${duration}ms ease`;
+            el.style.opacity = '0';
         });
-    }, duration);
+        setTimeout(() => {
+            elems.forEach(el => {
+                el.classList.add('is-hidden');
+                el.style.opacity = '';
+                el.style.transition = '';
+            });
+        }, duration);
+    }));
 }
 
 function animatedShow(elems, duration = 300) {
@@ -253,10 +257,18 @@ const settingOptions = [
         callback: (value, instant) => {
             const extras = document.querySelectorAll(".extra");
             if (value) {
-                instant ? extras.forEach(hide) : animatedHide(extras);
+                if (instant) {
+                    extras.forEach(hide);
+                } else {
+                    animatedHide(extras);
+                }
             } else {
                 const toShow = [...extras].filter(el => !el.classList.contains("weekend") || !config.hideWeekend);
-                instant ? toShow.forEach(show) : animatedShow(toShow);
+                if (instant) {
+                    toShow.forEach(show);
+                } else {
+                    animatedShow(toShow);
+                }
             }
         }
     },
@@ -266,10 +278,23 @@ const settingOptions = [
         callback: (value, instant) => {
             const weekends = document.querySelectorAll(".weekend");
             if (value) {
-                instant ? weekends.forEach(hide) : animatedHide(weekends);
+                if (instant) {
+                    weekends.forEach(hide);
+                    adjustColumnWidths();
+                } else {
+                    animatedHide(weekends);
+                    // Update col widths after fade completes
+                    setTimeout(() => adjustColumnWidths(), 320);
+                }
             } else {
                 const toShow = [...weekends].filter(el => !el.classList.contains("extra") || !config.trimTimetable);
-                instant ? toShow.forEach(show) : animatedShow(toShow);
+                // Restore col widths before showing
+                adjustColumnWidths();
+                if (instant) {
+                    toShow.forEach(show);
+                } else {
+                    animatedShow(toShow);
+                }
             }
         }
     },
@@ -786,6 +811,12 @@ function adjustColumnWidths() {
         if (day >= 0 && day < 7) maxPerDay[day] = Math.max(maxPerDay[day], count);
     });
 
+    // Zero out hidden weekend columns so they collapse in the layout
+    if (config.hideWeekend) {
+        maxPerDay[5] = 0;
+        maxPerDay[6] = 0;
+    }
+
     const totalWeight = maxPerDay.reduce((a, b) => a + b, 0);
     const table = document.querySelector('.timetable');
     let colgroup = table.querySelector('colgroup');
@@ -797,7 +828,7 @@ function adjustColumnWidths() {
     const cols = Array.from(colgroup.querySelectorAll('col'));
     cols[0].style.width = '8%';
     maxPerDay.forEach((w, i) => {
-        cols[i + 1].style.width = `${(w / totalWeight) * 92}%`;
+        cols[i + 1].style.width = totalWeight > 0 ? `${(w / totalWeight) * 92}%` : '0';
     });
 }
 
