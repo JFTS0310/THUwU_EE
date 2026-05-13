@@ -44,64 +44,79 @@ function getExtraRows() {
     return [...rows];
 }
 
+// CSS transitions on tr/td height don't work in table-layout:fixed because table
+// layout treats `height` as min-height and ignores it for row sizing. Use a rAF
+// loop with setProperty('important') to force heights past CSS !important rules.
 function animateRowsCollapse(rowElems) {
     if (!rowElems.length) return;
-    // Set overflow:hidden on cells so content is clipped as row shrinks
-    rowElems.forEach(row => {
-        row.querySelectorAll('th, td').forEach(cell => {
-            if (!cell.classList.contains('is-hidden')) cell.style.overflow = 'hidden';
+    const cells = rowElems.flatMap(r => [...r.querySelectorAll('th, td')])
+        .filter(c => !c.classList.contains('is-hidden'));
+    if (!cells.length) return;
+    cells.forEach(c => c.style.overflow = 'hidden');
+    const start = performance.now();
+    function step(now) {
+        const t = Math.min((now - start) / ANIM_DURATION, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        const h = 64 * (1 - ease);
+        const p = 4 * (1 - ease);
+        cells.forEach(c => {
+            c.style.setProperty('height', h + 'px', 'important');
+            c.style.setProperty('padding-top', p + 'px', 'important');
+            c.style.setProperty('padding-bottom', p + 'px', 'important');
         });
-        row.style.height = row.getBoundingClientRect().height + 'px';
-        row.style.transition = '';
-    });
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        rowElems.forEach(row => {
-            row.style.transition = `height ${ANIM_DURATION}ms cubic-bezier(0.4,0,0.2,1)`;
-            row.style.height = '0';
-        });
-        setTimeout(() => {
-            rowElems.forEach(row => {
-                row.querySelectorAll('th, td').forEach(cell => {
-                    cell.classList.add('is-hidden');
-                    cell.style.overflow = '';
-                });
-                row.style.height = '';
-                row.style.transition = '';
+        if (t < 1) {
+            requestAnimationFrame(step);
+        } else {
+            cells.forEach(c => {
+                c.classList.add('is-hidden');
+                c.style.removeProperty('height');
+                c.style.removeProperty('padding-top');
+                c.style.removeProperty('padding-bottom');
+                c.style.overflow = '';
             });
-        }, ANIM_DURATION);
-    }));
+        }
+    }
+    requestAnimationFrame(step);
 }
 
 function animateRowsExpand(rowElems, excludeWeekend = false) {
     if (!rowElems.length) return;
-    const cellsToShow = rowElems.flatMap(row =>
+    const cells = rowElems.flatMap(row =>
         [...row.querySelectorAll('th, td')].filter(el =>
             el.classList.contains('is-hidden') && (!excludeWeekend || !el.classList.contains('weekend'))
         )
     );
-    if (!cellsToShow.length) return;
-    // Show cells with overflow clipped, set row to 0 height before animating open
-    cellsToShow.forEach(cell => {
-        cell.classList.remove('is-hidden');
-        cell.style.overflow = 'hidden';
+    if (!cells.length) return;
+    cells.forEach(c => {
+        c.classList.remove('is-hidden');
+        c.style.overflow = 'hidden';
+        c.style.setProperty('height', '0', 'important');
+        c.style.setProperty('padding-top', '0', 'important');
+        c.style.setProperty('padding-bottom', '0', 'important');
     });
-    rowElems.forEach(row => {
-        row.style.height = '0';
-        row.style.transition = '';
-    });
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        rowElems.forEach(row => {
-            row.style.transition = `height ${ANIM_DURATION}ms cubic-bezier(0.4,0,0.2,1)`;
-            row.style.height = '64px';
+    const start = performance.now();
+    function step(now) {
+        const t = Math.min((now - start) / ANIM_DURATION, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        const h = 64 * ease;
+        const p = 4 * ease;
+        cells.forEach(c => {
+            c.style.setProperty('height', h + 'px', 'important');
+            c.style.setProperty('padding-top', p + 'px', 'important');
+            c.style.setProperty('padding-bottom', p + 'px', 'important');
         });
-        setTimeout(() => {
-            rowElems.forEach(row => {
-                row.querySelectorAll('th, td').forEach(cell => cell.style.overflow = '');
-                row.style.height = '';
-                row.style.transition = '';
+        if (t < 1) {
+            requestAnimationFrame(step);
+        } else {
+            cells.forEach(c => {
+                c.style.removeProperty('height');
+                c.style.removeProperty('padding-top');
+                c.style.removeProperty('padding-bottom');
+                c.style.overflow = '';
             });
-        }, ANIM_DURATION);
-    }));
+        }
+    }
+    requestAnimationFrame(step);
 }
 
 function getCurrentColWidths() {
