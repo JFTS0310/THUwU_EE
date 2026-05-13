@@ -30,19 +30,7 @@ footer {
     transition: color 0.3s;
 }
 
-body.dark-mode .footer {
-    background-color: transparent;
-    color: #666;
-}
-
-body.dark-mode .footer a {
-    color: #888;
-    transition: color 0.2s;
-}
-
-body.dark-mode .footer a:hover {
-    color: #bbb;
-}
+/* dark footer handled in dark mode section below */
 
 .table-container {
     box-shadow: 0 0 10px #ECEFF1;
@@ -813,8 +801,8 @@ body.dark-mode .conflict-accordion .course {
     border-bottom: 1px solid #30363d;
 }
 
-body.dark-mode .footer {
-    background-color: transparent;
+body.dark-mode footer.footer {
+    background-color: #0d1117;
     color: #484f58;
 }
 
@@ -824,6 +812,10 @@ body.dark-mode .footer a {
 
 body.dark-mode .footer a:hover {
     color: #c9d1d9;
+}
+
+html:has(body.dark-mode) {
+    background-color: #0d1117;
 }
 
 body.dark-mode #user-tag-filter-container {

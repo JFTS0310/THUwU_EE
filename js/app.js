@@ -46,25 +46,27 @@ function getExtraRows() {
 
 function animateRowsCollapse(rowElems) {
     if (!rowElems.length) return;
-    const cells = rowElems.flatMap(row => [...row.querySelectorAll('th, td')])
-        .filter(cell => !cell.classList.contains('is-hidden'));
-    if (!cells.length) return;
-    cells.forEach(cell => {
-        cell.style.maxHeight = cell.getBoundingClientRect().height + 'px';
-        cell.style.overflow = 'hidden';
-        cell.style.transition = '';
+    // Set overflow:hidden on cells so content is clipped as row shrinks
+    rowElems.forEach(row => {
+        row.querySelectorAll('th, td').forEach(cell => {
+            if (!cell.classList.contains('is-hidden')) cell.style.overflow = 'hidden';
+        });
+        row.style.height = row.getBoundingClientRect().height + 'px';
+        row.style.transition = '';
     });
     requestAnimationFrame(() => requestAnimationFrame(() => {
-        cells.forEach(cell => {
-            cell.style.transition = `max-height ${ANIM_DURATION}ms cubic-bezier(0.4,0,0.2,1)`;
-            cell.style.maxHeight = '0';
+        rowElems.forEach(row => {
+            row.style.transition = `height ${ANIM_DURATION}ms cubic-bezier(0.4,0,0.2,1)`;
+            row.style.height = '0';
         });
         setTimeout(() => {
-            cells.forEach(cell => {
-                cell.classList.add('is-hidden');
-                cell.style.maxHeight = '';
-                cell.style.overflow = '';
-                cell.style.transition = '';
+            rowElems.forEach(row => {
+                row.querySelectorAll('th, td').forEach(cell => {
+                    cell.classList.add('is-hidden');
+                    cell.style.overflow = '';
+                });
+                row.style.height = '';
+                row.style.transition = '';
             });
         }, ANIM_DURATION);
     }));
@@ -72,28 +74,31 @@ function animateRowsCollapse(rowElems) {
 
 function animateRowsExpand(rowElems, excludeWeekend = false) {
     if (!rowElems.length) return;
-    const cells = rowElems.flatMap(row =>
+    const cellsToShow = rowElems.flatMap(row =>
         [...row.querySelectorAll('th, td')].filter(el =>
             el.classList.contains('is-hidden') && (!excludeWeekend || !el.classList.contains('weekend'))
         )
     );
-    if (!cells.length) return;
-    cells.forEach(cell => {
+    if (!cellsToShow.length) return;
+    // Show cells with overflow clipped, set row to 0 height before animating open
+    cellsToShow.forEach(cell => {
         cell.classList.remove('is-hidden');
-        cell.style.maxHeight = '0';
         cell.style.overflow = 'hidden';
-        cell.style.transition = '';
+    });
+    rowElems.forEach(row => {
+        row.style.height = '0';
+        row.style.transition = '';
     });
     requestAnimationFrame(() => requestAnimationFrame(() => {
-        cells.forEach(cell => {
-            cell.style.transition = `max-height ${ANIM_DURATION}ms cubic-bezier(0.4,0,0.2,1)`;
-            cell.style.maxHeight = '64px';
+        rowElems.forEach(row => {
+            row.style.transition = `height ${ANIM_DURATION}ms cubic-bezier(0.4,0,0.2,1)`;
+            row.style.height = '64px';
         });
         setTimeout(() => {
-            cells.forEach(cell => {
-                cell.style.maxHeight = '';
-                cell.style.overflow = '';
-                cell.style.transition = '';
+            rowElems.forEach(row => {
+                row.querySelectorAll('th, td').forEach(cell => cell.style.overflow = '');
+                row.style.height = '';
+                row.style.transition = '';
             });
         }, ANIM_DURATION);
     }));
@@ -128,6 +133,9 @@ function animateColWidths(fromWidths, toWidths) {
         for (let i = 0; i < 8; i++) colgroup.appendChild(document.createElement('col'));
     }
     const cols = Array.from(colgroup.querySelectorAll('col'));
+    // Freeze cell overflow so content doesn't reflow row heights during col resize
+    const cells = table.querySelectorAll('th:not(.is-hidden), td:not(.is-hidden)');
+    cells.forEach(cell => cell.style.overflow = 'hidden');
     const start = performance.now();
     function step(now) {
         const t = Math.min((now - start) / ANIM_DURATION, 1);
@@ -135,7 +143,11 @@ function animateColWidths(fromWidths, toWidths) {
         for (let i = 0; i < 7; i++) {
             cols[i + 1].style.width = (fromWidths[i] + (toWidths[i] - fromWidths[i]) * ease) + '%';
         }
-        if (t < 1) requestAnimationFrame(step);
+        if (t < 1) {
+            requestAnimationFrame(step);
+        } else {
+            cells.forEach(cell => cell.style.overflow = '');
+        }
     }
     requestAnimationFrame(step);
 }
