@@ -482,8 +482,8 @@ body.show-conflict-warning .timetable td.has-conflict {
     position: absolute;
     z-index: 100;
     top: calc(100% + 6px);
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
+    transform: none;
     opacity: 0;
     transition: opacity 0.2s ease, visibility 0.2s ease;
     font-size: 0.82rem;
@@ -527,6 +527,10 @@ body.hide-tags .course .chips .tag {
 body.dark-mode {
     background-color: #0d1117;
     color: #e6edf3;
+}
+
+body.dark-mode .navbar-brand img {
+    filter: brightness(0) invert(1);
 }
 
 body.dark-mode nav {
@@ -741,6 +745,12 @@ body.dark-mode .dropdown-item:hover {
 
 body.dark-mode .dropdown-divider {
     background-color: #30363d;
+}
+
+body.dark-mode .button {
+    background-color: #21262d;
+    color: #c9d1d9;
+    border-color: #30363d;
 }
 
 body.dark-mode .button.is-light {

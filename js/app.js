@@ -34,46 +34,110 @@ function debounce(func, delay) {
     };
 }
 
-function animatedHide(elems, duration = 300) {
-    elems = Array.from(elems);
-    if (!elems.length) return;
-    // Commit current opacity before starting transition
-    elems.forEach(el => { el.style.transition = ''; el.style.opacity = '1'; });
+const ANIM_DURATION = 350;
+
+function getExtraRows() {
+    const rows = new Set();
+    document.querySelectorAll('th.extra').forEach(el => {
+        if (el.parentElement?.tagName === 'TR') rows.add(el.parentElement);
+    });
+    return [...rows];
+}
+
+function animateRowsCollapse(rowElems) {
+    if (!rowElems.length) return;
+    const cells = rowElems.flatMap(row => [...row.querySelectorAll('th, td')])
+        .filter(cell => !cell.classList.contains('is-hidden'));
+    if (!cells.length) return;
+    cells.forEach(cell => {
+        cell.style.maxHeight = cell.getBoundingClientRect().height + 'px';
+        cell.style.overflow = 'hidden';
+        cell.style.transition = '';
+    });
     requestAnimationFrame(() => requestAnimationFrame(() => {
-        elems.forEach(el => {
-            el.style.transition = `opacity ${duration}ms ease`;
-            el.style.opacity = '0';
+        cells.forEach(cell => {
+            cell.style.transition = `max-height ${ANIM_DURATION}ms cubic-bezier(0.4,0,0.2,1)`;
+            cell.style.maxHeight = '0';
         });
         setTimeout(() => {
-            elems.forEach(el => {
-                el.classList.add('is-hidden');
-                el.style.opacity = '';
-                el.style.transition = '';
+            cells.forEach(cell => {
+                cell.classList.add('is-hidden');
+                cell.style.maxHeight = '';
+                cell.style.overflow = '';
+                cell.style.transition = '';
             });
-        }, duration);
+        }, ANIM_DURATION);
     }));
 }
 
-function animatedShow(elems, duration = 300) {
-    elems = Array.from(elems);
-    if (!elems.length) return;
-    elems.forEach(el => {
-        el.classList.remove('is-hidden');
-        el.style.opacity = '0';
-        el.style.transition = '';
+function animateRowsExpand(rowElems, excludeWeekend = false) {
+    if (!rowElems.length) return;
+    const cells = rowElems.flatMap(row =>
+        [...row.querySelectorAll('th, td')].filter(el =>
+            el.classList.contains('is-hidden') && (!excludeWeekend || !el.classList.contains('weekend'))
+        )
+    );
+    if (!cells.length) return;
+    cells.forEach(cell => {
+        cell.classList.remove('is-hidden');
+        cell.style.maxHeight = '0';
+        cell.style.overflow = 'hidden';
+        cell.style.transition = '';
     });
     requestAnimationFrame(() => requestAnimationFrame(() => {
-        elems.forEach(el => {
-            el.style.transition = `opacity ${duration}ms ease`;
-            el.style.opacity = '1';
+        cells.forEach(cell => {
+            cell.style.transition = `max-height ${ANIM_DURATION}ms cubic-bezier(0.4,0,0.2,1)`;
+            cell.style.maxHeight = '64px';
         });
         setTimeout(() => {
-            elems.forEach(el => {
-                el.style.opacity = '';
-                el.style.transition = '';
+            cells.forEach(cell => {
+                cell.style.maxHeight = '';
+                cell.style.overflow = '';
+                cell.style.transition = '';
             });
-        }, duration);
+        }, ANIM_DURATION);
     }));
+}
+
+function getCurrentColWidths() {
+    const colgroup = document.querySelector('.timetable colgroup');
+    if (!colgroup) return Array(7).fill(92 / 7);
+    return Array.from(colgroup.querySelectorAll('col')).slice(1).map(col => parseFloat(col.style.width) || 0);
+}
+
+function getTargetColWidths(hideWeekend) {
+    const maxPerDay = [1, 1, 1, 1, 1, 1, 1];
+    document.querySelectorAll('.timetable td.has-conflict').forEach(td => {
+        const id = td.id;
+        if (!id || id.length < 2) return;
+        const day = parseInt(id[0]) - 1;
+        const count = td.querySelectorAll('.period:not(.preview)').length;
+        if (day >= 0 && day < 7) maxPerDay[day] = Math.max(maxPerDay[day], count);
+    });
+    if (hideWeekend) { maxPerDay[5] = 0; maxPerDay[6] = 0; }
+    const total = maxPerDay.reduce((a, b) => a + b, 0);
+    return maxPerDay.map(w => total > 0 ? (w / total) * 92 : 0);
+}
+
+function animateColWidths(fromWidths, toWidths) {
+    const table = document.querySelector('.timetable');
+    let colgroup = table.querySelector('colgroup');
+    if (!colgroup) {
+        colgroup = document.createElement('colgroup');
+        table.insertBefore(colgroup, table.firstChild);
+        for (let i = 0; i < 8; i++) colgroup.appendChild(document.createElement('col'));
+    }
+    const cols = Array.from(colgroup.querySelectorAll('col'));
+    const start = performance.now();
+    function step(now) {
+        const t = Math.min((now - start) / ANIM_DURATION, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        for (let i = 0; i < 7; i++) {
+            cols[i + 1].style.width = (fromWidths[i] + (toWidths[i] - fromWidths[i]) * ease) + '%';
+        }
+        if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
 }
 
 let courseData = {};
@@ -255,19 +319,19 @@ const settingOptions = [
         key: "trimTimetable",
         description: "我不用早出晚歸",
         callback: (value, instant) => {
-            const extras = document.querySelectorAll(".extra");
             if (value) {
                 if (instant) {
-                    extras.forEach(hide);
+                    document.querySelectorAll(".extra").forEach(hide);
                 } else {
-                    animatedHide(extras);
+                    animateRowsCollapse(getExtraRows());
                 }
             } else {
-                const toShow = [...extras].filter(el => !el.classList.contains("weekend") || !config.hideWeekend);
                 if (instant) {
-                    toShow.forEach(show);
+                    [...document.querySelectorAll(".extra")]
+                        .filter(el => !el.classList.contains("weekend") || !config.hideWeekend)
+                        .forEach(show);
                 } else {
-                    animatedShow(toShow);
+                    animateRowsExpand(getExtraRows(), config.hideWeekend);
                 }
             }
         }
@@ -282,18 +346,21 @@ const settingOptions = [
                     weekends.forEach(hide);
                     adjustColumnWidths();
                 } else {
-                    animatedHide(weekends);
-                    // Update col widths after fade completes
-                    setTimeout(() => adjustColumnWidths(), 320);
+                    const fromWidths = getCurrentColWidths();
+                    const toWidths = getTargetColWidths(true);
+                    animateColWidths(fromWidths, toWidths);
+                    setTimeout(() => weekends.forEach(el => el.classList.add('is-hidden')), ANIM_DURATION);
                 }
             } else {
                 const toShow = [...weekends].filter(el => !el.classList.contains("extra") || !config.trimTimetable);
-                // Restore col widths before showing
-                adjustColumnWidths();
                 if (instant) {
                     toShow.forEach(show);
+                    adjustColumnWidths();
                 } else {
-                    animatedShow(toShow);
+                    toShow.forEach(el => el.classList.remove('is-hidden'));
+                    const fromWidths = getCurrentColWidths();
+                    const toWidths = getTargetColWidths(false);
+                    animateColWidths(fromWidths, toWidths);
                 }
             }
         }
