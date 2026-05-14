@@ -36,6 +36,9 @@ function debounce(func, delay) {
 
 const ANIM_DURATION = 350;
 
+let colAnimId = null;
+let rowAnimId = null;
+
 function getExtraRows() {
     const rows = new Set();
     document.querySelectorAll('th.extra').forEach(el => {
@@ -52,6 +55,7 @@ function animateRowsCollapse(rowElems) {
     const cells = rowElems.flatMap(r => [...r.querySelectorAll('th, td')])
         .filter(c => !c.classList.contains('is-hidden'));
     if (!cells.length) return;
+    if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
     cells.forEach(c => c.style.overflow = 'hidden');
     const start = performance.now();
     function step(now) {
@@ -65,8 +69,9 @@ function animateRowsCollapse(rowElems) {
             c.style.setProperty('padding-bottom', p + 'px', 'important');
         });
         if (t < 1) {
-            requestAnimationFrame(step);
+            rowAnimId = requestAnimationFrame(step);
         } else {
+            rowAnimId = null;
             cells.forEach(c => {
                 c.classList.add('is-hidden');
                 c.style.removeProperty('height');
@@ -76,7 +81,7 @@ function animateRowsCollapse(rowElems) {
             });
         }
     }
-    requestAnimationFrame(step);
+    rowAnimId = requestAnimationFrame(step);
 }
 
 function animateRowsExpand(rowElems, excludeWeekend = false) {
@@ -87,6 +92,7 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
         )
     );
     if (!cells.length) return;
+    if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
     cells.forEach(c => {
         c.classList.remove('is-hidden');
         c.style.overflow = 'hidden';
@@ -106,8 +112,9 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
             c.style.setProperty('padding-bottom', p + 'px', 'important');
         });
         if (t < 1) {
-            requestAnimationFrame(step);
+            rowAnimId = requestAnimationFrame(step);
         } else {
+            rowAnimId = null;
             cells.forEach(c => {
                 c.style.removeProperty('height');
                 c.style.removeProperty('padding-top');
@@ -116,7 +123,7 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
             });
         }
     }
-    requestAnimationFrame(step);
+    rowAnimId = requestAnimationFrame(step);
 }
 
 function getCurrentColWidths() {
@@ -139,7 +146,7 @@ function getTargetColWidths(hideWeekend) {
     return maxPerDay.map(w => total > 0 ? (w / total) * 92 : 0);
 }
 
-function animateColWidths(fromWidths, toWidths) {
+function animateColWidths(fromWidths, toWidths, onComplete) {
     const table = document.querySelector('.timetable');
     let colgroup = table.querySelector('colgroup');
     if (!colgroup) {
@@ -148,7 +155,7 @@ function animateColWidths(fromWidths, toWidths) {
         for (let i = 0; i < 8; i++) colgroup.appendChild(document.createElement('col'));
     }
     const cols = Array.from(colgroup.querySelectorAll('col'));
-    // Freeze cell overflow so content doesn't reflow row heights during col resize
+    if (colAnimId) { cancelAnimationFrame(colAnimId); colAnimId = null; }
     const cells = table.querySelectorAll('th:not(.is-hidden), td:not(.is-hidden)');
     cells.forEach(cell => cell.style.overflow = 'hidden');
     const start = performance.now();
@@ -159,12 +166,14 @@ function animateColWidths(fromWidths, toWidths) {
             cols[i + 1].style.width = (fromWidths[i] + (toWidths[i] - fromWidths[i]) * ease) + '%';
         }
         if (t < 1) {
-            requestAnimationFrame(step);
+            colAnimId = requestAnimationFrame(step);
         } else {
+            colAnimId = null;
             cells.forEach(cell => cell.style.overflow = '');
+            if (onComplete) onComplete();
         }
     }
-    requestAnimationFrame(step);
+    colAnimId = requestAnimationFrame(step);
 }
 
 let courseData = {};
@@ -375,8 +384,7 @@ const settingOptions = [
                 } else {
                     const fromWidths = getCurrentColWidths();
                     const toWidths = getTargetColWidths(true);
-                    animateColWidths(fromWidths, toWidths);
-                    setTimeout(() => weekends.forEach(el => el.classList.add('is-hidden')), ANIM_DURATION);
+                    animateColWidths(fromWidths, toWidths, () => weekends.forEach(el => el.classList.add('is-hidden')));
                 }
             } else {
                 const toShow = [...weekends].filter(el => !el.classList.contains("extra") || !config.trimTimetable);
