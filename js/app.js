@@ -57,16 +57,14 @@ function animateRowsCollapse(rowElems) {
     if (!cells.length) return;
     if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
     const startHeights = cells.map(c => c.getBoundingClientRect().height);
-    cells.forEach(c => {
+    cells.forEach((c, i) => {
         c.style.overflow = 'hidden';
+        c.style.setProperty('height', startHeights[i] + 'px', 'important');
         c.style.setProperty('min-height', '0', 'important');
         c.style.setProperty('padding-top', '0', 'important');
         c.style.setProperty('padding-bottom', '0', 'important');
-        if (c.tagName === 'TH') {
-            c.style.setProperty('font-size', '0', 'important');
-            c.style.setProperty('line-height', '0', 'important');
-        }
     });
+    void cells[0].getBoundingClientRect();
     const start = performance.now();
     function step(now) {
         const t = Math.min((now - start) / ANIM_DURATION, 1);
@@ -84,10 +82,6 @@ function animateRowsCollapse(rowElems) {
                 c.style.removeProperty('padding-top');
                 c.style.removeProperty('padding-bottom');
                 c.style.removeProperty('min-height');
-                if (c.tagName === 'TH') {
-                    c.style.removeProperty('font-size');
-                    c.style.removeProperty('line-height');
-                }
                 c.style.overflow = '';
             });
         }
@@ -111,11 +105,8 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
         c.style.setProperty('height', '0', 'important');
         c.style.setProperty('padding-top', '0', 'important');
         c.style.setProperty('padding-bottom', '0', 'important');
-        if (c.tagName === 'TH') {
-            c.style.setProperty('font-size', '0', 'important');
-            c.style.setProperty('line-height', '0', 'important');
-        }
     });
+    void cells[0].getBoundingClientRect();
     const start = performance.now();
     function step(now) {
         const t = Math.min((now - start) / ANIM_DURATION, 1);
@@ -133,10 +124,6 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
                 c.style.removeProperty('padding-top');
                 c.style.removeProperty('padding-bottom');
                 c.style.removeProperty('min-height');
-                if (c.tagName === 'TH') {
-                    c.style.removeProperty('font-size');
-                    c.style.removeProperty('line-height');
-                }
                 c.style.overflow = '';
             });
         }
