@@ -56,17 +56,26 @@ function animateRowsCollapse(rowElems) {
         .filter(c => !c.classList.contains('is-hidden'));
     if (!cells.length) return;
     if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
+    // Clear any lingering inline styles from a cancelled animation before measuring
+    cells.forEach(c => {
+        c.style.removeProperty('height');
+        c.style.removeProperty('padding-top');
+        c.style.removeProperty('padding-bottom');
+    });
+    // Read actual rendered heights so a mid-animation restart doesn't jump
+    const startHeights = cells.map(c => c.getBoundingClientRect().height);
+    const startPTs = cells.map(c => parseFloat(getComputedStyle(c).paddingTop) || 0);
+    const startPBs = cells.map(c => parseFloat(getComputedStyle(c).paddingBottom) || 0);
     cells.forEach(c => c.style.overflow = 'hidden');
-    const start = performance.now();
+    let start = null;
     function step(now) {
+        if (start === null) start = now; // Anchor to first painted frame, not click time
         const t = Math.min((now - start) / ANIM_DURATION, 1);
         const ease = 1 - Math.pow(1 - t, 3);
-        const h = 64 * (1 - ease);
-        const p = 4 * (1 - ease);
-        cells.forEach(c => {
-            c.style.setProperty('height', h + 'px', 'important');
-            c.style.setProperty('padding-top', p + 'px', 'important');
-            c.style.setProperty('padding-bottom', p + 'px', 'important');
+        cells.forEach((c, i) => {
+            c.style.setProperty('height', (startHeights[i] * (1 - ease)) + 'px', 'important');
+            c.style.setProperty('padding-top', (startPTs[i] * (1 - ease)) + 'px', 'important');
+            c.style.setProperty('padding-bottom', (startPBs[i] * (1 - ease)) + 'px', 'important');
         });
         if (t < 1) {
             rowAnimId = requestAnimationFrame(step);
@@ -93,23 +102,33 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
     );
     if (!cells.length) return;
     if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
+    // Reveal cells and clear any stale inline styles so getBoundingClientRect reads natural dimensions
     cells.forEach(c => {
         c.classList.remove('is-hidden');
+        c.style.removeProperty('height');
+        c.style.removeProperty('padding-top');
+        c.style.removeProperty('padding-bottom');
         c.style.overflow = 'hidden';
+    });
+    // getBoundingClientRect forces a reflow — read natural target dimensions before collapsing to 0
+    const targetHeights = cells.map(c => c.getBoundingClientRect().height);
+    const targetPTs = cells.map(c => parseFloat(getComputedStyle(c).paddingTop) || 0);
+    const targetPBs = cells.map(c => parseFloat(getComputedStyle(c).paddingBottom) || 0);
+    // Collapse to 0 for animation start (happens before next paint)
+    cells.forEach(c => {
         c.style.setProperty('height', '0', 'important');
         c.style.setProperty('padding-top', '0', 'important');
         c.style.setProperty('padding-bottom', '0', 'important');
     });
-    const start = performance.now();
+    let start = null;
     function step(now) {
+        if (start === null) start = now;
         const t = Math.min((now - start) / ANIM_DURATION, 1);
         const ease = 1 - Math.pow(1 - t, 3);
-        const h = 64 * ease;
-        const p = 4 * ease;
-        cells.forEach(c => {
-            c.style.setProperty('height', h + 'px', 'important');
-            c.style.setProperty('padding-top', p + 'px', 'important');
-            c.style.setProperty('padding-bottom', p + 'px', 'important');
+        cells.forEach((c, i) => {
+            c.style.setProperty('height', (targetHeights[i] * ease) + 'px', 'important');
+            c.style.setProperty('padding-top', (targetPTs[i] * ease) + 'px', 'important');
+            c.style.setProperty('padding-bottom', (targetPBs[i] * ease) + 'px', 'important');
         });
         if (t < 1) {
             rowAnimId = requestAnimationFrame(step);
@@ -158,8 +177,9 @@ function animateColWidths(fromWidths, toWidths, onComplete) {
     if (colAnimId) { cancelAnimationFrame(colAnimId); colAnimId = null; }
     const cells = table.querySelectorAll('th:not(.is-hidden), td:not(.is-hidden)');
     cells.forEach(cell => cell.style.overflow = 'hidden');
-    const start = performance.now();
+    let start = null;
     function step(now) {
+        if (start === null) start = now;
         const t = Math.min((now - start) / ANIM_DURATION, 1);
         const ease = 1 - Math.pow(1 - t, 3);
         for (let i = 0; i < 7; i++) {
