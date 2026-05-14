@@ -56,37 +56,51 @@ function animateRowsCollapse(rowElems) {
         .filter(c => !c.classList.contains('is-hidden'));
     if (!cells.length) return;
     if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
+
+    // Snapshot heights before any style changes (reads cached layout, no forced reflow)
     const startHeights = cells.map(c => c.getBoundingClientRect().height);
+
+    // Set initial state with transition disabled so the next frame commits it cleanly
     cells.forEach((c, i) => {
         c.style.overflow = 'hidden';
+        c.style.setProperty('transition', 'none', 'important');
         c.style.setProperty('height', startHeights[i] + 'px', 'important');
         c.style.setProperty('min-height', '0', 'important');
         c.style.setProperty('padding-top', '0', 'important');
         c.style.setProperty('padding-bottom', '0', 'important');
     });
-    void cells[0].getBoundingClientRect();
-    const start = performance.now();
-    function step(now) {
-        const t = Math.min((now - start) / ANIM_DURATION, 1);
-        const ease = 1 - Math.pow(1 - t, 3);
-        cells.forEach((c, i) => {
-            c.style.setProperty('height', (startHeights[i] * (1 - ease)) + 'px', 'important');
-        });
-        if (t < 1) {
-            rowAnimId = requestAnimationFrame(step);
-        } else {
+
+    // Double-rAF: first frame paints the locked initial state,
+    // second frame starts the CSS transition so the browser animates it natively.
+    rowAnimId = requestAnimationFrame(() => {
+        rowAnimId = requestAnimationFrame(() => {
             rowAnimId = null;
             cells.forEach(c => {
-                c.classList.add('is-hidden');
-                c.style.removeProperty('height');
-                c.style.removeProperty('padding-top');
-                c.style.removeProperty('padding-bottom');
-                c.style.removeProperty('min-height');
-                c.style.overflow = '';
+                c.style.setProperty('transition', `height ${ANIM_DURATION}ms cubic-bezier(0.215,0.61,0.355,1)`, 'important');
+                c.style.setProperty('height', '0', 'important');
             });
-        }
-    }
-    rowAnimId = requestAnimationFrame(step);
+            let finished = false;
+            const cleanup = () => {
+                if (finished) return;
+                finished = true;
+                cells.forEach(c => {
+                    c.classList.add('is-hidden');
+                    c.style.removeProperty('height');
+                    c.style.removeProperty('padding-top');
+                    c.style.removeProperty('padding-bottom');
+                    c.style.removeProperty('min-height');
+                    c.style.removeProperty('transition');
+                    c.style.overflow = '';
+                });
+            };
+            cells[0].addEventListener('transitionend', function h(e) {
+                if (e.propertyName !== 'height') return;
+                cells[0].removeEventListener('transitionend', h);
+                cleanup();
+            });
+            setTimeout(cleanup, ANIM_DURATION + 100);
+        });
+    });
 }
 
 function animateRowsExpand(rowElems, excludeWeekend = false) {
@@ -98,37 +112,45 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
     );
     if (!cells.length) return;
     if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
+
     cells.forEach(c => {
         c.classList.remove('is-hidden');
         c.style.overflow = 'hidden';
-        c.style.setProperty('min-height', '0', 'important');
+        c.style.setProperty('transition', 'none', 'important');
         c.style.setProperty('height', '0', 'important');
+        c.style.setProperty('min-height', '0', 'important');
         c.style.setProperty('padding-top', '0', 'important');
         c.style.setProperty('padding-bottom', '0', 'important');
     });
-    void cells[0].getBoundingClientRect();
-    const start = performance.now();
-    function step(now) {
-        const t = Math.min((now - start) / ANIM_DURATION, 1);
-        const ease = 1 - Math.pow(1 - t, 3);
-        const h = 64 * ease;
-        cells.forEach(c => {
-            c.style.setProperty('height', h + 'px', 'important');
-        });
-        if (t < 1) {
-            rowAnimId = requestAnimationFrame(step);
-        } else {
+
+    rowAnimId = requestAnimationFrame(() => {
+        rowAnimId = requestAnimationFrame(() => {
             rowAnimId = null;
             cells.forEach(c => {
-                c.style.removeProperty('height');
-                c.style.removeProperty('padding-top');
-                c.style.removeProperty('padding-bottom');
-                c.style.removeProperty('min-height');
-                c.style.overflow = '';
+                c.style.setProperty('transition', `height ${ANIM_DURATION}ms cubic-bezier(0.215,0.61,0.355,1)`, 'important');
+                c.style.setProperty('height', '64px', 'important');
             });
-        }
-    }
-    rowAnimId = requestAnimationFrame(step);
+            let finished = false;
+            const cleanup = () => {
+                if (finished) return;
+                finished = true;
+                cells.forEach(c => {
+                    c.style.removeProperty('height');
+                    c.style.removeProperty('padding-top');
+                    c.style.removeProperty('padding-bottom');
+                    c.style.removeProperty('min-height');
+                    c.style.removeProperty('transition');
+                    c.style.overflow = '';
+                });
+            };
+            cells[0].addEventListener('transitionend', function h(e) {
+                if (e.propertyName !== 'height') return;
+                cells[0].removeEventListener('transitionend', h);
+                cleanup();
+            });
+            setTimeout(cleanup, ANIM_DURATION + 100);
+        });
+    });
 }
 
 function getCurrentColWidths() {
