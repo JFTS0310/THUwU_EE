@@ -120,6 +120,7 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
     );
     if (!cells.length) return;
     if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
+    const thDivData = new Map();
     cells.forEach(c => {
         c.classList.remove('is-hidden');
         c.style.overflow = 'hidden';
@@ -130,11 +131,16 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
         if (c.tagName === 'TH') {
             c.style.setProperty('font-size', '0', 'important');
             c.style.setProperty('line-height', '0', 'important');
+            const divInfos = [];
             c.querySelectorAll('div').forEach(el => {
+                const cs = getComputedStyle(el);
+                const targetFontSize = parseFloat(cs.fontSize);
+                const targetMarginBottom = parseFloat(cs.marginBottom);
                 el.style.setProperty('font-size', '0', 'important');
-                el.style.setProperty('line-height', '0', 'important');
-                el.style.setProperty('margin', '0', 'important');
+                if (targetMarginBottom > 0) el.style.setProperty('margin-bottom', '0', 'important');
+                divInfos.push({ el, targetFontSize, targetMarginBottom });
             });
+            thDivData.set(c, divInfos);
         }
         c.style.opacity = '0';
     });
@@ -146,6 +152,13 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
         cells.forEach(c => {
             c.style.setProperty('height', (targetHeight * ease) + 'px', 'important');
             c.style.opacity = ease;
+            const divInfos = thDivData.get(c);
+            if (divInfos) {
+                divInfos.forEach(({ el, targetFontSize, targetMarginBottom }) => {
+                    el.style.setProperty('font-size', (targetFontSize * ease) + 'px', 'important');
+                    if (targetMarginBottom > 0) el.style.setProperty('margin-bottom', (targetMarginBottom * ease) + 'px', 'important');
+                });
+            }
         });
         if (t < 1) {
             rowAnimId = requestAnimationFrame(step);
@@ -159,11 +172,13 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
                 if (c.tagName === 'TH') {
                     c.style.removeProperty('font-size');
                     c.style.removeProperty('line-height');
-                    c.querySelectorAll('div').forEach(el => {
-                        el.style.removeProperty('font-size');
-                        el.style.removeProperty('line-height');
-                        el.style.removeProperty('margin');
-                    });
+                    const divInfos = thDivData.get(c);
+                    if (divInfos) {
+                        divInfos.forEach(({ el }) => {
+                            el.style.removeProperty('font-size');
+                            el.style.removeProperty('margin-bottom');
+                        });
+                    }
                 }
                 c.style.opacity = '';
                 c.style.overflow = '';
