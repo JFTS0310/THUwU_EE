@@ -37,6 +37,8 @@ function debounce(func, delay) {
 const ANIM_DURATION = 350;
 
 let colAnimId = null;
+let colAnimTimer = null;
+let colAnimGeneration = 0;
 let rowAnimId = null;
 
 function getExtraRows() {
@@ -47,49 +49,51 @@ function getExtraRows() {
     return [...rows];
 }
 
+// CSS spec treats `height` on table cells as min-height, so cells with text or
+// padding cannot collapse to 0 unless those are also zeroed. Padding and th
+// font-size are cleared immediately; opacity is animated alongside height so
+// the grid fades as it collapses/expands rather than content snapping away.
 function animateRowsCollapse(rowElems) {
     if (!rowElems.length) return;
-    if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
     const cells = rowElems.flatMap(r => [...r.querySelectorAll('th, td')])
         .filter(c => !c.classList.contains('is-hidden'));
     if (!cells.length) return;
+    if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
     const startHeights = cells.map(c => c.getBoundingClientRect().height);
-    cells.forEach((c, i) => {
+    cells.forEach(c => {
         c.style.overflow = 'hidden';
-        c.style.setProperty('height', startHeights[i] + 'px', 'important');
         c.style.setProperty('min-height', '0', 'important');
         c.style.setProperty('padding-top', '0', 'important');
         c.style.setProperty('padding-bottom', '0', 'important');
-    });
-    rowElems.forEach(row => {
-        const label = row.querySelector('th.extra')?.firstChild?.textContent?.trim();
-        row.style.transformOrigin = label === 'A' ? 'top center' : 'bottom center';
-        row.style.setProperty('transform', 'scaleY(1)', 'important');
+        if (c.tagName === 'TH') {
+            c.style.setProperty('font-size', '0', 'important');
+            c.style.setProperty('line-height', '0', 'important');
+        }
     });
     const start = performance.now();
     function step(now) {
         const t = Math.min((now - start) / ANIM_DURATION, 1);
         const ease = 1 - Math.pow(1 - t, 3);
-        rowElems.forEach(row => {
-            row.style.setProperty('transform', `scaleY(${1 - ease})`, 'important');
-        });
+        const progress = 1 - ease;
         cells.forEach((c, i) => {
-            c.style.setProperty('height', (startHeights[i] * (1 - ease)) + 'px', 'important');
+            c.style.setProperty('height', (startHeights[i] * progress) + 'px', 'important');
+            c.style.opacity = progress;
         });
         if (t < 1) {
             rowAnimId = requestAnimationFrame(step);
         } else {
             rowAnimId = null;
-            rowElems.forEach(row => {
-                row.style.removeProperty('transform');
-                row.style.removeProperty('transform-origin');
-            });
             cells.forEach(c => {
                 c.classList.add('is-hidden');
                 c.style.removeProperty('height');
                 c.style.removeProperty('padding-top');
                 c.style.removeProperty('padding-bottom');
                 c.style.removeProperty('min-height');
+                if (c.tagName === 'TH') {
+                    c.style.removeProperty('font-size');
+                    c.style.removeProperty('line-height');
+                }
+                c.style.opacity = '';
                 c.style.overflow = '';
             });
         }
@@ -99,50 +103,49 @@ function animateRowsCollapse(rowElems) {
 
 function animateRowsExpand(rowElems, excludeWeekend = false) {
     if (!rowElems.length) return;
-    if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
     const cells = rowElems.flatMap(row =>
         [...row.querySelectorAll('th, td')].filter(el =>
             el.classList.contains('is-hidden') && (!excludeWeekend || !el.classList.contains('weekend'))
         )
     );
     if (!cells.length) return;
+    if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
     cells.forEach(c => {
         c.classList.remove('is-hidden');
         c.style.overflow = 'hidden';
-        c.style.setProperty('height', '0', 'important');
         c.style.setProperty('min-height', '0', 'important');
+        c.style.setProperty('height', '0', 'important');
         c.style.setProperty('padding-top', '0', 'important');
         c.style.setProperty('padding-bottom', '0', 'important');
+        if (c.tagName === 'TH') {
+            c.style.setProperty('font-size', '0', 'important');
+            c.style.setProperty('line-height', '0', 'important');
+        }
+        c.style.opacity = '0';
     });
-    rowElems.forEach(row => {
-        const label = row.querySelector('th.extra')?.firstChild?.textContent?.trim();
-        row.style.transformOrigin = label === 'A' ? 'top center' : 'bottom center';
-        row.style.setProperty('transform', 'scaleY(0)', 'important');
-    });
+    const targetHeight = 64;
     const start = performance.now();
     function step(now) {
         const t = Math.min((now - start) / ANIM_DURATION, 1);
         const ease = 1 - Math.pow(1 - t, 3);
-        rowElems.forEach(row => {
-            row.style.setProperty('transform', `scaleY(${ease})`, 'important');
-        });
-        const h = 64 * ease;
         cells.forEach(c => {
-            c.style.setProperty('height', h + 'px', 'important');
+            c.style.setProperty('height', (targetHeight * ease) + 'px', 'important');
+            c.style.opacity = ease;
         });
         if (t < 1) {
             rowAnimId = requestAnimationFrame(step);
         } else {
             rowAnimId = null;
-            rowElems.forEach(row => {
-                row.style.removeProperty('transform');
-                row.style.removeProperty('transform-origin');
-            });
             cells.forEach(c => {
                 c.style.removeProperty('height');
                 c.style.removeProperty('padding-top');
                 c.style.removeProperty('padding-bottom');
                 c.style.removeProperty('min-height');
+                if (c.tagName === 'TH') {
+                    c.style.removeProperty('font-size');
+                    c.style.removeProperty('line-height');
+                }
+                c.style.opacity = '';
                 c.style.overflow = '';
             });
         }
@@ -153,7 +156,11 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
 function getCurrentColWidths() {
     const colgroup = document.querySelector('.timetable colgroup');
     if (!colgroup) return Array(7).fill(92 / 7);
-    return Array.from(colgroup.querySelectorAll('col')).slice(1).map(col => parseFloat(col.style.width) || 0);
+    const tableWidth = document.querySelector('.timetable')?.getBoundingClientRect().width || 1;
+    return Array.from(colgroup.querySelectorAll('col')).slice(1).map(col => {
+        const w = parseFloat(getComputedStyle(col).width);
+        return (!isNaN(w) && tableWidth > 0) ? (w / tableWidth) * 100 : 0;
+    });
 }
 
 function getTargetColWidths(hideWeekend) {
@@ -180,24 +187,31 @@ function animateColWidths(fromWidths, toWidths, onComplete) {
     }
     const cols = Array.from(colgroup.querySelectorAll('col'));
     if (colAnimId) { cancelAnimationFrame(colAnimId); colAnimId = null; }
+    if (colAnimTimer) { clearTimeout(colAnimTimer); colAnimTimer = null; }
+    const gen = ++colAnimGeneration;
     const cells = table.querySelectorAll('th:not(.is-hidden), td:not(.is-hidden)');
     cells.forEach(cell => cell.style.overflow = 'hidden');
-    const start = performance.now();
-    function step(now) {
-        const t = Math.min((now - start) / ANIM_DURATION, 1);
-        const ease = 1 - Math.pow(1 - t, 3);
-        for (let i = 0; i < 7; i++) {
-            cols[i + 1].style.width = (fromWidths[i] + (toWidths[i] - fromWidths[i]) * ease) + '%';
-        }
-        if (t < 1) {
-            colAnimId = requestAnimationFrame(step);
-        } else {
-            colAnimId = null;
+
+    // Snap to fromWidths with no transition, then double-rAF flush before
+    // enabling the CSS transition so the browser commits the start state first.
+    cols.forEach(col => col.style.transition = 'none');
+    for (let i = 0; i < 7; i++) cols[i + 1].style.width = fromWidths[i] + '%';
+
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (gen !== colAnimGeneration) return;
+        cols.forEach(col => {
+            col.style.transition = `width ${ANIM_DURATION}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+        });
+        for (let i = 0; i < 7; i++) cols[i + 1].style.width = toWidths[i] + '%';
+
+        colAnimTimer = setTimeout(() => {
+            if (gen !== colAnimGeneration) return;
+            colAnimTimer = null;
+            cols.forEach(col => col.style.transition = '');
             cells.forEach(cell => cell.style.overflow = '');
             if (onComplete) onComplete();
-        }
-    }
-    colAnimId = requestAnimationFrame(step);
+        }, ANIM_DURATION + 20);
+    }));
 }
 
 let courseData = {};
