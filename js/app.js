@@ -47,110 +47,107 @@ function getExtraRows() {
     return [...rows];
 }
 
-// CSS transitions on tr/td height don't work in table-layout:fixed because table
-// layout treats `height` as min-height and ignores it for row sizing. Use a rAF
-// loop with setProperty('important') to force heights past CSS !important rules.
 function animateRowsCollapse(rowElems) {
     if (!rowElems.length) return;
+    if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
     const cells = rowElems.flatMap(r => [...r.querySelectorAll('th, td')])
         .filter(c => !c.classList.contains('is-hidden'));
     if (!cells.length) return;
-    if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
-
-    // Snapshot heights before any style changes (reads cached layout, no forced reflow)
     const startHeights = cells.map(c => c.getBoundingClientRect().height);
-
-    // Set initial state with transition disabled so the next frame commits it cleanly
     cells.forEach((c, i) => {
         c.style.overflow = 'hidden';
-        c.style.setProperty('transition', 'none', 'important');
         c.style.setProperty('height', startHeights[i] + 'px', 'important');
         c.style.setProperty('min-height', '0', 'important');
         c.style.setProperty('padding-top', '0', 'important');
         c.style.setProperty('padding-bottom', '0', 'important');
     });
-
-    // Double-rAF: first frame paints the locked initial state,
-    // second frame starts the CSS transition so the browser animates it natively.
-    rowAnimId = requestAnimationFrame(() => {
-        rowAnimId = requestAnimationFrame(() => {
-            rowAnimId = null;
-            cells.forEach(c => {
-                c.style.setProperty('transition', `height ${ANIM_DURATION}ms cubic-bezier(0.215,0.61,0.355,1)`, 'important');
-                c.style.setProperty('height', '0', 'important');
-            });
-            let finished = false;
-            const cleanup = () => {
-                if (finished) return;
-                finished = true;
-                cells.forEach(c => {
-                    c.classList.add('is-hidden');
-                    c.style.removeProperty('height');
-                    c.style.removeProperty('padding-top');
-                    c.style.removeProperty('padding-bottom');
-                    c.style.removeProperty('min-height');
-                    c.style.removeProperty('transition');
-                    c.style.overflow = '';
-                });
-            };
-            cells[0].addEventListener('transitionend', function h(e) {
-                if (e.propertyName !== 'height') return;
-                cells[0].removeEventListener('transitionend', h);
-                cleanup();
-            });
-            setTimeout(cleanup, ANIM_DURATION + 100);
-        });
+    rowElems.forEach(row => {
+        const label = row.querySelector('th.extra')?.firstChild?.textContent?.trim();
+        row.style.transformOrigin = label === 'A' ? 'top center' : 'bottom center';
+        row.style.setProperty('transform', 'scaleY(1)', 'important');
     });
+    const start = performance.now();
+    function step(now) {
+        const t = Math.min((now - start) / ANIM_DURATION, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        rowElems.forEach(row => {
+            row.style.setProperty('transform', `scaleY(${1 - ease})`, 'important');
+        });
+        cells.forEach((c, i) => {
+            c.style.setProperty('height', (startHeights[i] * (1 - ease)) + 'px', 'important');
+        });
+        if (t < 1) {
+            rowAnimId = requestAnimationFrame(step);
+        } else {
+            rowAnimId = null;
+            rowElems.forEach(row => {
+                row.style.removeProperty('transform');
+                row.style.removeProperty('transform-origin');
+            });
+            cells.forEach(c => {
+                c.classList.add('is-hidden');
+                c.style.removeProperty('height');
+                c.style.removeProperty('padding-top');
+                c.style.removeProperty('padding-bottom');
+                c.style.removeProperty('min-height');
+                c.style.overflow = '';
+            });
+        }
+    }
+    rowAnimId = requestAnimationFrame(step);
 }
 
 function animateRowsExpand(rowElems, excludeWeekend = false) {
     if (!rowElems.length) return;
+    if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
     const cells = rowElems.flatMap(row =>
         [...row.querySelectorAll('th, td')].filter(el =>
             el.classList.contains('is-hidden') && (!excludeWeekend || !el.classList.contains('weekend'))
         )
     );
     if (!cells.length) return;
-    if (rowAnimId) { cancelAnimationFrame(rowAnimId); rowAnimId = null; }
-
     cells.forEach(c => {
         c.classList.remove('is-hidden');
         c.style.overflow = 'hidden';
-        c.style.setProperty('transition', 'none', 'important');
         c.style.setProperty('height', '0', 'important');
         c.style.setProperty('min-height', '0', 'important');
         c.style.setProperty('padding-top', '0', 'important');
         c.style.setProperty('padding-bottom', '0', 'important');
     });
-
-    rowAnimId = requestAnimationFrame(() => {
-        rowAnimId = requestAnimationFrame(() => {
-            rowAnimId = null;
-            cells.forEach(c => {
-                c.style.setProperty('transition', `height ${ANIM_DURATION}ms cubic-bezier(0.215,0.61,0.355,1)`, 'important');
-                c.style.setProperty('height', '64px', 'important');
-            });
-            let finished = false;
-            const cleanup = () => {
-                if (finished) return;
-                finished = true;
-                cells.forEach(c => {
-                    c.style.removeProperty('height');
-                    c.style.removeProperty('padding-top');
-                    c.style.removeProperty('padding-bottom');
-                    c.style.removeProperty('min-height');
-                    c.style.removeProperty('transition');
-                    c.style.overflow = '';
-                });
-            };
-            cells[0].addEventListener('transitionend', function h(e) {
-                if (e.propertyName !== 'height') return;
-                cells[0].removeEventListener('transitionend', h);
-                cleanup();
-            });
-            setTimeout(cleanup, ANIM_DURATION + 100);
-        });
+    rowElems.forEach(row => {
+        const label = row.querySelector('th.extra')?.firstChild?.textContent?.trim();
+        row.style.transformOrigin = label === 'A' ? 'top center' : 'bottom center';
+        row.style.setProperty('transform', 'scaleY(0)', 'important');
     });
+    const start = performance.now();
+    function step(now) {
+        const t = Math.min((now - start) / ANIM_DURATION, 1);
+        const ease = 1 - Math.pow(1 - t, 3);
+        rowElems.forEach(row => {
+            row.style.setProperty('transform', `scaleY(${ease})`, 'important');
+        });
+        const h = 64 * ease;
+        cells.forEach(c => {
+            c.style.setProperty('height', h + 'px', 'important');
+        });
+        if (t < 1) {
+            rowAnimId = requestAnimationFrame(step);
+        } else {
+            rowAnimId = null;
+            rowElems.forEach(row => {
+                row.style.removeProperty('transform');
+                row.style.removeProperty('transform-origin');
+            });
+            cells.forEach(c => {
+                c.style.removeProperty('height');
+                c.style.removeProperty('padding-top');
+                c.style.removeProperty('padding-bottom');
+                c.style.removeProperty('min-height');
+                c.style.overflow = '';
+            });
+        }
+    }
+    rowAnimId = requestAnimationFrame(step);
 }
 
 function getCurrentColWidths() {
