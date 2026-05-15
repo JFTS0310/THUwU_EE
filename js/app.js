@@ -227,8 +227,11 @@ function animateColWidths(fromWidths, toWidths, onComplete) {
     const cells = table.querySelectorAll('th:not(.is-hidden), td:not(.is-hidden)');
     cells.forEach(cell => cell.style.overflow = 'hidden');
 
-    // Snap to fromWidths with no transition, then double-rAF flush before
-    // enabling the CSS transition so the browser commits the start state first.
+    const headerRow = table.querySelector('tr');
+    const headerCells = headerRow ? Array.from(headerRow.querySelectorAll('th, td')) : [];
+    headerCells.forEach(cell => { cell.style.removeProperty('font-size'); cell.style.whiteSpace = ''; });
+    const headerNaturalFontSizes = headerCells.map(cell => parseFloat(getComputedStyle(cell).fontSize));
+
     cols.forEach(col => col.style.transition = 'none');
     for (let i = 0; i < 7; i++) cols[i + 1].style.width = fromWidths[i] + '%';
 
@@ -239,11 +242,30 @@ function animateColWidths(fromWidths, toWidths, onComplete) {
         });
         for (let i = 0; i < 7; i++) cols[i + 1].style.width = toWidths[i] + '%';
 
+        const tableWidth = table.getBoundingClientRect().width;
+        const maxWidthsPx = fromWidths.map((fw, i) => Math.max(fw, toWidths[i]) / 100 * tableWidth);
+        headerCells.forEach(cell => { cell.style.whiteSpace = 'nowrap'; });
+
+        function scaleHeaders() {
+            if (gen !== colAnimGeneration) return;
+            for (let i = 0; i < 7; i++) {
+                const cell = headerCells[i + 1];
+                if (!cell) continue;
+                const currentWidth = parseFloat(getComputedStyle(cols[i + 1]).width);
+                const scale = maxWidthsPx[i] > 0 ? Math.min(currentWidth / maxWidthsPx[i], 1) : 0;
+                cell.style.setProperty('font-size', (headerNaturalFontSizes[i + 1] * scale) + 'px', 'important');
+            }
+            colAnimId = requestAnimationFrame(scaleHeaders);
+        }
+        colAnimId = requestAnimationFrame(scaleHeaders);
+
         colAnimTimer = setTimeout(() => {
             if (gen !== colAnimGeneration) return;
             colAnimTimer = null;
+            if (colAnimId) { cancelAnimationFrame(colAnimId); colAnimId = null; }
             cols.forEach(col => col.style.transition = '');
             cells.forEach(cell => cell.style.overflow = '');
+            headerCells.forEach(cell => { cell.style.removeProperty('font-size'); cell.style.whiteSpace = ''; });
             if (onComplete) onComplete();
         }, ANIM_DURATION + 20);
     }));
