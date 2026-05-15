@@ -68,6 +68,11 @@ function animateRowsCollapse(rowElems) {
         if (c.tagName === 'TH') {
             c.style.setProperty('font-size', '0', 'important');
             c.style.setProperty('line-height', '0', 'important');
+            c.querySelectorAll('div').forEach(el => {
+                el.style.setProperty('font-size', '0', 'important');
+                el.style.setProperty('line-height', '0', 'important');
+                el.style.setProperty('margin', '0', 'important');
+            });
         }
     });
     const start = performance.now();
@@ -92,6 +97,11 @@ function animateRowsCollapse(rowElems) {
                 if (c.tagName === 'TH') {
                     c.style.removeProperty('font-size');
                     c.style.removeProperty('line-height');
+                    c.querySelectorAll('div').forEach(el => {
+                        el.style.removeProperty('font-size');
+                        el.style.removeProperty('line-height');
+                        el.style.removeProperty('margin');
+                    });
                 }
                 c.style.opacity = '';
                 c.style.overflow = '';
@@ -120,6 +130,11 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
         if (c.tagName === 'TH') {
             c.style.setProperty('font-size', '0', 'important');
             c.style.setProperty('line-height', '0', 'important');
+            c.querySelectorAll('div').forEach(el => {
+                el.style.setProperty('font-size', '0', 'important');
+                el.style.setProperty('line-height', '0', 'important');
+                el.style.setProperty('margin', '0', 'important');
+            });
         }
         c.style.opacity = '0';
     });
@@ -144,6 +159,11 @@ function animateRowsExpand(rowElems, excludeWeekend = false) {
                 if (c.tagName === 'TH') {
                     c.style.removeProperty('font-size');
                     c.style.removeProperty('line-height');
+                    c.querySelectorAll('div').forEach(el => {
+                        el.style.removeProperty('font-size');
+                        el.style.removeProperty('line-height');
+                        el.style.removeProperty('margin');
+                    });
                 }
                 c.style.opacity = '';
                 c.style.overflow = '';
