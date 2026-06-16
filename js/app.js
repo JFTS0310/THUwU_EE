@@ -591,14 +591,16 @@ function filterDepartments(deptData, activeDepIds) {
     return filtered;
 }
 
-const CHINESE_PERIOD = { '一':'1','二':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9' };
+const CHINESE_DAY = { '一':'1','二':'2','三':'3','四':'4','五':'5','六':'6','日':'7','七':'7' };
 
 function parseTimeCode(code) {
     code = code.trim();
+    // Standard code, possibly with section metadata after a space: "14", "1B", "14 一/1"
     const stdMatch = code.match(/^([1-7][A-F1-9])/);
     if (stdMatch) return stdMatch[1];
-    const chiMatch = code.match(/^([1-7])([一二三四五六七八九])\//);
-    if (chiMatch) return chiMatch[1] + (CHINESE_PERIOD[chiMatch[2]] || '');
+    // Occurrence-index + Chinese-weekday + / + period: "2五/3" → Friday(5) period 3 → "53"
+    const chiMatch = code.match(/^\d([一二三四五六日七])\/([A-F1-9])/);
+    if (chiMatch) return (CHINESE_DAY[chiMatch[1]] || '') + chiMatch[2];
     return null;
 }
 
