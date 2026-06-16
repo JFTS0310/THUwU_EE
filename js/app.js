@@ -591,60 +591,101 @@ function filterDepartments(deptData, activeDepIds) {
     return filtered;
 }
 
-Promise.all([
-    `course-data/${YEAR}${SEMESTER}-data.json`,
-    `course-data/department.json`,
-    `course-data/course-extras.json`
-].map(url => fetch(url).then(r => r.ok ? r.json() : {}))) 
-    .then(response => {
-        const [data, departmentRaw, extras] = response; 
+function loadCourseData() {
+    deptIdToName = {};
+    isDataLoaded = false;
+    const searchInput = document.querySelector(".input");
+    searchInput.disabled = true;
+    searchInput.placeholder = "載入課程資料中";
 
-        courseData = data;
-        extraData = extras || {};
-        
-        Object.keys(courseData).forEach(id => {
-            if (extraData[id]) {
-                courseData[id] = { ...courseData[id], ...extraData[id] };
+    Promise.all([
+        `course-data/${YEAR}${SEMESTER}-data.json`,
+        `course-data/department.json`,
+        `course-data/course-extras.json`
+    ].map(url => fetch(url).then(r => r.ok ? r.json() : {})))
+        .then(response => {
+            const [data, departmentRaw, extras] = response;
+
+            courseData = data;
+            extraData = extras || {};
+
+            Object.keys(courseData).forEach(id => {
+                if (extraData[id]) courseData[id] = { ...courseData[id], ...extraData[id] };
+            });
+
+            if (departmentRaw) buildDeptMap(departmentRaw);
+
+            selectedCourse = share ? loadFromShareLink() : loadFromLocalStorage();
+            isDataLoaded = true;
+
+            searchInput.disabled = false;
+            searchInput.placeholder = "課號 / 課名 / 老師";
+            updateCreditsUI();
+            renderAllSelected();
+
+            const activeDepIds = new Set();
+            Object.values(courseData).forEach(course => {
+                if (Array.isArray(course.dep)) course.dep.forEach(id => activeDepIds.add(id));
+            });
+
+            let deptDataToProcess = departmentRaw;
+            if (departmentRaw && Object.keys(departmentRaw).length === 1 && typeof Object.values(departmentRaw)[0] === 'object') {
+                deptDataToProcess = Object.values(departmentRaw)[0];
             }
+
+            const filteredDeptData = filterDepartments(deptDataToProcess, activeDepIds);
+            renderDepartment(filteredDeptData);
+            renderSearchResult();
+
+            if (currentUser) loadUserDataFromCloud(currentUser.uid);
+        })
+        .catch(err => {
+            console.error(err);
+            searchInput.placeholder = "資料載入失敗，請檢查網路或檔案路徑";
         });
+}
 
-        if (departmentRaw) {
-            buildDeptMap(departmentRaw);
+const semesterSelect = document.getElementById('semester-select');
+if (semesterSelect) {
+    const saved = localStorage.getItem('selectedSemester');
+    if (saved) {
+        const [y, s] = saved.split('-');
+        if (AVAILABLE_SEMESTERS.some(item => item.year === y && item.sem === s)) {
+            YEAR = y;
+            SEMESTER = s;
         }
-
-        selectedCourse = share ? loadFromShareLink() : loadFromLocalStorage();
-        isDataLoaded = true;
-
-        document.querySelector(".input").disabled = false;
-        document.querySelector(".input").placeholder = "課號 / 課名 / 老師";
-        updateCreditsUI(); 
-        renderAllSelected();
-
-        const activeDepIds = new Set();
-        Object.values(courseData).forEach(course => {
-            if (Array.isArray(course.dep)) {
-                course.dep.forEach(id => activeDepIds.add(id));
-            }
-        });
-
-        let deptDataToProcess = departmentRaw;
-        if (departmentRaw && Object.keys(departmentRaw).length === 1 && typeof Object.values(departmentRaw)[0] === 'object') {
-             deptDataToProcess = Object.values(departmentRaw)[0];
-        }
-
-        const filteredDeptData = filterDepartments(deptDataToProcess, activeDepIds);
-
-        renderDepartment(filteredDeptData);
-        renderSearchResult();
-        
-        if (currentUser) {
-            loadUserDataFromCloud(currentUser.uid);
-        }
-    })
-    .catch(err => {
-        console.error(err);
-        document.querySelector(".input").placeholder = "資料載入失敗，請檢查網路或檔案路徑";
+    }
+    AVAILABLE_SEMESTERS.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = `${item.year}-${item.sem}`;
+        opt.textContent = item.label;
+        if (item.year === YEAR && item.sem === SEMESTER) opt.selected = true;
+        semesterSelect.appendChild(opt);
     });
+    semesterSelect.onchange = (e) => {
+        const [y, s] = e.target.value.split('-');
+        YEAR = y;
+        SEMESTER = s;
+        localStorage.setItem('selectedSemester', e.target.value);
+        filter.department = false;
+        filter.departmentId = -1;
+        filter.departmentCode = null;
+        filter.period = false;
+        filter.periodCodes = [];
+        filter.grade = -1;
+        document.querySelectorAll('select.department').forEach(sel => {
+            if (+sel.dataset.level > 1) sel.parentElement.classList.add('is-hidden');
+        });
+        document.getElementById('grade-filter').value = '-1';
+        document.getElementById('search-period').innerHTML = '';
+        document.querySelectorAll('.find-empty-overlay.selected').forEach(el => el.classList.remove('selected'));
+        document.querySelector('.result').innerHTML = '';
+        document.querySelector('.input').value = '';
+        loadCourseData();
+    };
+}
+
+loadCourseData();
 
 const authContainer = document.getElementById('auth-container');
 const btnLogin = document.getElementById('btn-login');

@@ -26,7 +26,11 @@ const BERIEF_CODE = {
   'A505': '校基本'
 }
 
-const YEAR = '115', SEMESTER = '1';
+const AVAILABLE_SEMESTERS = [
+    { year: '114', sem: '2', label: '114-2（下學期）' },
+    { year: '115', sem: '1', label: '115-1（上學期）' },
+];
+let YEAR = '115', SEMESTER = '1';
 const APP_URL = `${location.protocol}//${location.host}${location.pathname}`;
 
 const DEV = location.hostname === '127.0.0.1';
