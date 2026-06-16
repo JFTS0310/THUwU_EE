@@ -45,7 +45,7 @@ def main():
         print(f"Error: {json_path} not found.")
         return
 
-    with open(json_path, 'r', encoding='utf-8') as f:
+    with open(json_path, 'r', encoding='utf-8-sig') as f:
         course_data = json.load(f)
 
     output_data = {}
