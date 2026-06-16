@@ -593,15 +593,33 @@ function filterDepartments(deptData, activeDepIds) {
 
 const CHINESE_DAY = { '一':'1','二':'2','三':'3','四':'4','五':'5','六':'6','日':'7','七':'7' };
 
-function parseTimeCode(code) {
-    code = code.trim();
-    // Standard code, possibly with section metadata after a space: "14", "1B", "14 一/1"
-    const stdMatch = code.match(/^([1-7][A-F1-9])/);
-    if (stdMatch) return stdMatch[1];
-    // Occurrence-index + Chinese-weekday + / + period: "2五/3" → Friday(5) period 3 → "53"
-    const chiMatch = code.match(/^\d([一二三四五六日七])\/([A-F1-9])/);
-    if (chiMatch) return (CHINESE_DAY[chiMatch[1]] || '') + chiMatch[2];
-    return null;
+function normalizeTimeArray(times) {
+    const result = [];
+    let inheritedDay = null;
+    for (const raw of times) {
+        const code = raw.trim();
+        // "1B 五/5" → two slots: standard code + Chinese-weekday/period, sets inherited day
+        const splitMatch = code.match(/^([1-7][A-F1-9]) ([一二三四五六日七])\/([A-F1-9])/);
+        if (splitMatch) {
+            result.push(splitMatch[1]);
+            inheritedDay = CHINESE_DAY[splitMatch[2]];
+            result.push(inheritedDay + splitMatch[3]);
+            continue;
+        }
+        // "2五/3" → occurrence-index + Chinese-weekday/period, sets inherited day
+        const chiMatch = code.match(/^\d([一二三四五六日七])\/([A-F1-9])/);
+        if (chiMatch) {
+            inheritedDay = CHINESE_DAY[chiMatch[1]];
+            result.push(inheritedDay + chiMatch[2]);
+            continue;
+        }
+        // Standard code: use inherited day if set (e.g. "16" after "1B 五/5" → Fri-6)
+        const stdMatch = code.match(/^[1-7]([A-F1-9])/);
+        if (stdMatch) {
+            result.push(inheritedDay ? inheritedDay + stdMatch[1] : code.substring(0, 2));
+        }
+    }
+    return [...new Set(result)];
 }
 
 function loadCourseData() {
@@ -626,7 +644,7 @@ function loadCourseData() {
                 if (extraData[id]) courseData[id] = { ...courseData[id], ...extraData[id] };
                 const course = courseData[id];
                 if (Array.isArray(course.time)) {
-                    course.time = [...new Set(course.time.map(parseTimeCode).filter(Boolean))];
+                    course.time = normalizeTimeArray(course.time);
                 }
             });
 
