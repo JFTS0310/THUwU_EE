@@ -26,7 +26,7 @@ const BERIEF_CODE = {
   'A505': '校基本'
 }
 
-const YEAR = '114', SEMESTER = '2';
+const YEAR = '115', SEMESTER = '1';
 const APP_URL = `${location.protocol}//${location.host}${location.pathname}`;
 
 const DEV = location.hostname === '127.0.0.1';

@@ -40,7 +40,7 @@ def parse_course_page(html_content):
     }
 
 def main():
-    json_path = '1142-data.json'
+    json_path = '1151-data.json'
     if not os.path.exists(json_path):
         print(f"Error: {json_path} not found.")
         return
@@ -56,7 +56,7 @@ def main():
 
     for course_id in course_data:
         count += 1
-        url = f"https://course.thu.edu.tw/view/114/2/{course_id}"
+        url = f"https://course.thu.edu.tw/view/115/1/{course_id}"
         
         try:
             response = requests.get(url, timeout=10)
