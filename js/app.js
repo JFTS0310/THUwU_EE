@@ -591,6 +591,17 @@ function filterDepartments(deptData, activeDepIds) {
     return filtered;
 }
 
+const CHINESE_PERIOD = { '一':'1','二':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9' };
+
+function parseTimeCode(code) {
+    code = code.trim();
+    const stdMatch = code.match(/^([1-7][A-F1-9])/);
+    if (stdMatch) return stdMatch[1];
+    const chiMatch = code.match(/^([1-7])([一二三四五六七八九])\//);
+    if (chiMatch) return chiMatch[1] + (CHINESE_PERIOD[chiMatch[2]] || '');
+    return null;
+}
+
 function loadCourseData() {
     deptIdToName = {};
     isDataLoaded = false;
@@ -611,6 +622,10 @@ function loadCourseData() {
 
             Object.keys(courseData).forEach(id => {
                 if (extraData[id]) courseData[id] = { ...courseData[id], ...extraData[id] };
+                const course = courseData[id];
+                if (Array.isArray(course.time)) {
+                    course.time = [...new Set(course.time.map(parseTimeCode).filter(Boolean))];
+                }
             });
 
             if (departmentRaw) buildDeptMap(departmentRaw);
