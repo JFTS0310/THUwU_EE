@@ -27,7 +27,6 @@ const BERIEF_CODE = {
 }
 
 const AVAILABLE_SEMESTERS = [
-    { year: '114', sem: '2', label: '114-2（下學期）' },
     { year: '115', sem: '1', label: '115-1（上學期）' },
 ];
 let YEAR = '115', SEMESTER = '1';

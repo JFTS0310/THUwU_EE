@@ -625,7 +625,8 @@ function loadCourseData() {
 
             const activeDepIds = new Set();
             Object.values(courseData).forEach(course => {
-                if (Array.isArray(course.dep)) course.dep.forEach(id => activeDepIds.add(id));
+                const deps = Array.isArray(course.dep) ? course.dep : (course.dep != null ? [course.dep] : []);
+                deps.forEach(id => activeDepIds.add(id));
             });
 
             let deptDataToProcess = departmentRaw;
@@ -1420,8 +1421,9 @@ function search(searchTerm) {
 
         let deptMatch = true;
         if (filter.department) {
-            const idMatch = course.dep.some(d => d == filter.departmentId);
-            const codeMatch = filter.departmentCode && course.dep.some(d => d == filter.departmentCode);
+            const deps = Array.isArray(course.dep) ? course.dep : (course.dep != null ? [course.dep] : []);
+            const idMatch = deps.some(d => d == filter.departmentId);
+            const codeMatch = filter.departmentCode && deps.some(d => d == filter.departmentCode);
             deptMatch = idMatch || codeMatch;
         }
 
@@ -1532,9 +1534,8 @@ function renderSearchResult(searchTerm) {
     const groups = {};
     result.forEach(c => {
         let deptName = "其他單位";
-        if (c.dep && c.dep.length > 0) {
-            deptName = deptIdToName[c.dep[0]] || "其他單位";
-        }
+        const firstDep = Array.isArray(c.dep) ? c.dep[0] : c.dep;
+        if (firstDep != null) deptName = deptIdToName[firstDep] || "其他單位";
         if(!groups[deptName]) groups[deptName] = [];
         groups[deptName].push(c);
     });
